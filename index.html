@@ -1,0 +1,2807 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OITem Pillar Tracker v2.7.0</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --panel-2: #f8f9fb;
+    --border: #dfe2e7;
+    --text: #1d2330;
+    --muted: #667085;
+    --accent: #2563eb;
+    --accent-weak: #e6eefc;
+    --ok: #15803d;
+    --warn: #b45309;
+    --err: #b91c1c;
+    --plot-bg: #ffffff;
+    --grid: #eceef2;
+    --s1: #2563eb;
+    --s2: #e4572e;
+    --s3: #16a34a;
+    --s4: #9333ea;
+    --s5: #d97706;
+    --s6: #0891b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b;
+      --panel: #1a1e26;
+      --panel-2: #20252f;
+      --border: #2e3440;
+      --text: #e6e8ec;
+      --muted: #98a2b3;
+      --accent: #5b8def;
+      --accent-weak: #1f2b45;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --plot-bg: #1a1e26;
+      --grid: #272c36;
+      --s1: #6c9cf5;
+      --s2: #f2795a;
+      --s3: #4ade80;
+      --s4: #c084fc;
+      --s5: #fbbf24;
+      --s6: #22d3ee;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151b;
+    --panel: #1a1e26;
+    --panel-2: #20252f;
+    --border: #2e3440;
+    --text: #e6e8ec;
+    --muted: #98a2b3;
+    --accent: #5b8def;
+    --accent-weak: #1f2b45;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --plot-bg: #1a1e26;
+    --grid: #272c36;
+    --s1: #6c9cf5;
+    --s2: #f2795a;
+    --s3: #4ade80;
+    --s4: #c084fc;
+    --s5: #fbbf24;
+    --s6: #22d3ee;
+  }
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .ver { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+  #cvStatus { font-size: 12px; color: var(--muted); }
+  #cvStatus.ok { color: var(--ok); }
+  #cvStatus.err { color: var(--err); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+    align-items: start;
+  }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .panel > h2 {
+    font-size: 13px; margin: 0; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel > h2 .right { margin-left: auto; font-weight: normal; }
+  .panel .body { padding: 10px 12px; }
+
+  button {
+    font: inherit; cursor: pointer;
+    padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text);
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=number], input[type=text], select {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px;
+    width: 100%;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px 8px; }
+  .field label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 1px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .row.tight { margin-top: 4px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; background: transparent; }
+  .seg button.on { background: var(--accent-weak); color: var(--accent); font-weight: 600; }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .sub { font-weight: 600; margin: 10px 0 4px; font-size: 12px; }
+  .sub:first-child { margin-top: 0; }
+  .check { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .check input { margin: 0; }
+
+  .list-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .list-tools select { width: auto; flex: 1; min-width: 0; }
+  #bulkBar { background: var(--accent-weak); border-radius: 6px; padding: 4px 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+  .dot.none { background: transparent !important; border: 1.5px dashed var(--muted); }
+  #videoList .gsel { width: auto; max-width: 96px; font-size: 11px; padding: 1px 2px; }
+  #videoList input[type=checkbox] { margin: 0; flex: none; }
+  #groupList { list-style: none; margin: 0; padding: 0; }
+  #groupList li { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .swatch-btn { width: 26px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; flex: none; }
+  .swatch-btn:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #colorPop {
+    position: absolute; z-index: 50; display: none; width: 232px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 10px;
+  }
+  #colorPop .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  #colorPop .grid button { height: 26px; padding: 0; border-radius: 5px; border: 2px solid transparent; }
+  #colorPop .grid button.sel { border-color: var(--text); }
+  #colorPop .custom { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+  #colorPop .custom input[type=color] { width: 32px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }
+  #colorPop .custom input[type=text] { flex: 1; font-family: ui-monospace, monospace; }
+  #colorPop .ttl { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  #groupList input[type=text] { flex: 1; min-width: 0; }
+  #groupList .rm { border: none; background: transparent; color: var(--muted); padding: 0 6px; }
+  #visList { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 6px; }
+  .vis-group { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--panel-2); }
+  .vis-group > label { font-weight: 600; }
+  .vis-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 1px 0; min-width: 0; }
+  .vis-group label span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vis-group .items { padding-left: 18px; }
+  .vis-group .na { color: var(--muted); font-size: 11px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; flex: none; display: inline-block; }
+  #exportList { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 12px; margin-top: 6px; }
+  #exportList label { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 4px; cursor: pointer; min-width: 0; }
+  #exportList label:hover { background: var(--panel-2); }
+  #exportList .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #exportList label.dis { color: var(--muted); cursor: default; }
+  #videoList { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+  #videoList li {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  #videoList li:hover { background: var(--panel-2); }
+  #videoList li.active { background: var(--accent-weak); border-color: var(--accent); }
+  #videoList .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #videoList .rm { padding: 0 6px; border: none; background: transparent; color: var(--muted); }
+  .badge {
+    font-size: 10px; padding: 1px 6px; border-radius: 10px; white-space: nowrap;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .badge.run { color: var(--accent); border-color: var(--accent); }
+  .empty { color: var(--muted); padding: 8px; text-align: center; }
+  .drop {
+    border: 1.5px dashed var(--border); border-radius: 8px; padding: 10px;
+    text-align: center; color: var(--muted); margin-bottom: 8px;
+  }
+  .drop.over { border-color: var(--accent); color: var(--accent); }
+
+  .viewer-wrap {
+    position: relative; background: #000; border-radius: 6px; overflow: hidden;
+    display: flex; justify-content: center; align-items: center; min-height: 240px;
+  }
+  #viewCanvas { display: block; max-width: 100%; max-height: 62vh; touch-action: none; outline: none; }
+  #viewPlaceholder { position: absolute; color: #9aa3b2; text-align: center; padding: 20px; }
+  .viewer-bar { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  #frameSlider { flex: 1; min-width: 160px; }
+  #frameLabel { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 170px; }
+  #modeLabel { font-size: 11px; }
+
+  .progress { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  #statusText { margin-top: 6px; color: var(--muted); min-height: 1.5em; }
+  #statusText.err { color: var(--err); }
+
+  .plots { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+  @media (max-width: 1300px) { .plots { grid-template-columns: 1fr; } }
+  .plot-box canvas { width: 100%; height: 280px; display: block; background: var(--plot-bg); border-radius: 6px; cursor: pointer; }
+  .plot-title { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .plot-title select { width: auto; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  .stat .k { font-size: 11px; color: var(--muted); }
+  .stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .v small { font-size: 11px; font-weight: normal; color: var(--muted); }
+  #reproBox { margin-top: 8px; font-size: 12px; }
+  #reproBox.ok { color: var(--ok); }
+  #reproBox.warn { color: var(--warn); }
+
+  #overlayPreview { width: 100%; max-height: 50vh; border-radius: 6px; background: #000; margin-top: 8px; display: none; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details ul { margin: 6px 0 0; padding-left: 18px; }
+  code { background: var(--panel-2); padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OITem Pillar Tracker</h1>
+  <span class="ver">v2.7.0</span>
+  <span class="spacer"></span>
+  <span id="cvStatus">OpenCV.js 読み込み中...</span>
+  <div class="seg" id="themeSeg" title="テーマ">
+    <button data-theme="auto">自動</button>
+    <button data-theme="light">ライト</button>
+    <button data-theme="dark">ダーク</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ============ 左サイドバー ============ -->
+  <aside>
+    <section class="panel">
+      <h2>動画 <span class="right"><span id="videoCount" class="badge">0</span></span></h2>
+      <div class="body">
+        <div class="drop" id="dropZone">
+          動画をここにドロップ、または
+          <div class="row" style="justify-content:center;margin-top:4px">
+            <button id="addVideoBtn">動画を追加（複数可）</button>
+          </div>
+          <input type="file" id="videoInput" accept="video/*" multiple hidden>
+        </div>
+        <div class="list-tools">
+          <label class="check" style="margin:0" title="表示中の動画をすべて選択"><input type="checkbox" id="checkAllVideos"></label>
+          <select id="groupFilter" title="グループで絞り込み"></select>
+        </div>
+        <ul id="videoList"></ul>
+        <div class="list-tools" id="bulkBar" style="display:none">
+          <span id="bulkCount"></span>
+          <select id="bulkGroupSelect"></select>
+          <button id="bulkAssignBtn">に割り当て</button>
+        </div>
+        <div class="row">
+          <button id="runActiveBtn" class="primary">この動画を解析</button>
+          <button id="runAllBtn">全動画を解析</button>
+          <button id="abortBtn" class="danger" disabled>中止</button>
+        </div>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div id="statusText"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>グループ（色タグ） <span class="right"><button id="addGroupBtn">＋ グループ追加</button></span></h2>
+      <div class="body">
+        <ul id="groupList"></ul>
+        <div class="hint">色の四角をクリックすると色を選べます（18 色のパレット、または任意の色・カラーコード）。名前は直接編集できます。動画への割り当ては、動画リストの各行のプルダウンか、チェックした動画への一括割り当てで行います。</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>ログ（解析条件・結果の再現）</h2>
+      <div class="body">
+        <div class="row tight">
+          <button id="saveLogBtn">ログを保存 (.json)</button>
+          <button id="loadLogBtn">ログを読み込み</button>
+          <input type="file" id="logInput" accept=".json,application/json" hidden>
+        </div>
+        <div class="hint">
+          ログには全動画の ROI・解析条件・換算条件・結果が入ります。読み込むと、同じファイル名の動画に条件を適用します。動画を後から追加しても自動で紐づきます。その後「解析」を実行すると、ログの結果との差を表示します。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>解析条件 <span class="right" id="settingsTarget" style="color:var(--muted);font-size:11px"></span></h2>
+      <div class="body" id="settingsPanel">
+        <div class="sub">ROI（1フレーム目で指定）</div>
+        <div class="row tight">
+          <div class="seg" id="roiShapeSeg">
+            <button data-shape="circle" class="on">円</button>
+            <button data-shape="rect">四角</button>
+          </div>
+          <span class="hint" style="margin:0">ドラッグで新規作成</span>
+        </div>
+        <div class="grid3" style="margin-top:6px">
+          <div class="field"><label id="lblA">cx</label><input type="number" id="roiA" step="1"></div>
+          <div class="field"><label id="lblB">cy</label><input type="number" id="roiB" step="1"></div>
+          <div class="field"><label id="lblC">r</label><input type="number" id="roiC" step="1"></div>
+          <div class="field" id="roiDField" style="display:none"><label>h</label><input type="number" id="roiD" step="1"></div>
+        </div>
+        <div class="row tight">
+          <button id="applyRoiBtn">数値を適用</button>
+          <button id="copyRoiBtn">ROIをコピー</button>
+          <button id="clearRoiBtn">ROIをクリア</button>
+        </div>
+
+        <div class="sub">トラッキング</div>
+        <div class="grid2">
+          <div class="field"><label>FPS <span id="fpsSrc"></span></label><input type="number" id="setFps" min="0.1" step="0.01"></div>
+          <div class="field"><label>探索範囲 (px)</label><input type="number" id="setMargin" min="5" step="5"></div>
+          <div class="field"><label>ピラー頂点の明るさ</label>
+            <select id="setPolarity">
+              <option value="dark">背景より暗い</option>
+              <option value="bright">背景より明るい</option>
+            </select>
+          </div>
+          <div class="field"><label>低スコア判定 (&lt;)</label><input type="number" id="setMinScore" min="0" max="1" step="0.05"></div>
+        </div>
+
+        <div class="sub">物理量換算</div>
+        <div class="grid2">
+          <div class="field"><label>スケール (µm/px)</label><input type="text" id="setUmPerPx" inputmode="decimal" placeholder="例: 24/11" title="数値または分数（例: 24/11）"></div>
+          <div class="field"><label>ばね定数の入力</label>
+            <select id="setKMode">
+              <option value="direct">直接入力</option>
+              <option value="geometry">寸法から計算</option>
+            </select>
+          </div>
+        </div>
+        <div id="kDirectBox" class="grid2" style="margin-top:6px">
+          <div class="field"><label>k (N/m)</label><input type="number" id="setK" min="0" step="0.001"></div>
+        </div>
+        <div id="kGeomBox" style="display:none;margin-top:6px">
+          <div class="grid3">
+            <div class="field"><label>E (MPa)</label><input type="number" id="setE" min="0" step="0.1"></div>
+            <div class="field"><label>直径 D (µm)</label><input type="number" id="setD" min="0" step="0.1"></div>
+            <div class="field"><label>高さ L (µm)</label><input type="number" id="setL" min="0" step="0.1"></div>
+          </div>
+          <div class="hint">k = 3πED⁴ / (64L³)（片持ち円柱梁）</div>
+        </div>
+        <div class="hint" id="scaleResult"></div>
+        <div class="hint" id="kResult" style="margin-top:2px"></div>
+
+        <div class="sub">出力</div>
+        <label class="check"><input type="checkbox" id="setRecord"> オーバーレイ動画を記録</label>
+        <label class="check"><input type="checkbox" id="setTrajectory"> 赤点の軌跡を表示</label>
+
+        <div class="row">
+          <button id="applyAllBtn">ROI 以外の条件（FPS 含む）を全動画に適用</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="body">
+        <details>
+          <summary>使い方</summary>
+          <ul>
+            <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「ROI 以外の条件を全動画に適用」で全動画に反映できます）。</li>
+            <li>1フレーム目（スライダー左端）でピラー頂点を ROI で囲みます。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
+            <li>赤点は、二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
+            <li>解析後はスライダーやグラフのクリックで任意のフレームを確認できます。</li>
+            <li>スケールやばね定数は解析後に変更しても再解析は不要で、グラフと CSV にすぐ反映されます。ROI・FPS・探索範囲・明るさを変えた場合は「要再解析」になります。</li>
+            <li>オーバーレイ動画は MediaRecorder で作るため、再生速度が元動画と一致しない場合があります。定量評価には CSV を使ってください。</li>
+            <li>OpenCV.js は、同じフォルダに <code>opencv.js</code> があればそれを優先して使います（オフラインで使えます）。</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ============ メイン ============ -->
+  <main>
+    <section class="panel">
+      <h2><span id="viewerTitle">ビューア</span><span class="right" id="modeLabel"></span></h2>
+      <div class="body">
+        <div class="viewer-wrap">
+          <canvas id="viewCanvas" tabindex="0" width="640" height="360"></canvas>
+          <div id="viewPlaceholder">左のパネルから動画を追加してください</div>
+        </div>
+        <div class="viewer-bar">
+          <button id="firstFrameBtn" title="1フレーム目（ROI編集）">⏮</button>
+          <button id="prevFrameBtn">◀</button>
+          <input type="range" id="frameSlider" min="0" max="0" value="0">
+          <button id="nextFrameBtn">▶</button>
+          <span id="frameLabel">–</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>結果
+        <span class="right row tight" style="margin:0">
+          <button id="csvBtn">CSV（この動画）</button>
+          <button id="pngBtn">グラフ画像 (PNG)</button>
+          <button id="overlayBtn">オーバーレイ動画</button>
+        </span>
+      </h2>
+      <div class="body">
+        <div class="stats" id="stats"></div>
+        <div id="reproBox"></div>
+        <div class="plots" style="margin-top:12px">
+          <div class="plot-box">
+            <div class="plot-title">
+              <select id="metricSelect">
+                <option value="d">変位 |d| (µm)</option>
+                <option value="dxdy">変位 dx, dy (µm)</option>
+                <option value="F">力 |F| (µN)</option>
+                <option value="FxFy">力 Fx, Fy (µN)</option>
+                <option value="score">マッチングスコア</option>
+              </select>
+              <div class="seg" id="plotModeSeg">
+                <button data-mode="single" class="on">この動画</button>
+                <button data-mode="overlay">重ね描画</button>
+              </div>
+              <span id="colorByBox" style="display:none">
+                色:
+                <div class="seg" id="colorBySeg">
+                  <button data-by="group" class="on">グループ</button>
+                  <button data-by="video">動画ごと</button>
+                </div>
+              </span>
+              <span style="margin-left:auto">クリックでそのフレームへ移動</span>
+            </div>
+            <canvas id="timePlot"></canvas>
+          </div>
+          <div class="plot-box">
+            <div class="plot-title">軌跡 dx–dy (µm)</div>
+            <canvas id="xyPlot"></canvas>
+          </div>
+        </div>
+        <div id="overlayPanel" style="display:none">
+          <div class="list-tools" style="margin-top:10px">
+            <strong style="font-size:12px">重ね描画するデータ</strong>
+            <button id="showAllBtn">すべて表示</button>
+            <button id="hideAllBtn">すべて非表示</button>
+            <span class="hint" style="margin:0">太線が選択中の動画です。x 成分は実線、y 成分は破線で描きます。</span>
+          </div>
+          <div id="visList"></div>
+        </div>
+        <details id="overlayDetails" style="margin-top:12px;display:none">
+          <summary>オーバーレイ動画プレビュー</summary>
+          <video id="overlayPreview" controls playsinline></video>
+        </details>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>一括出力 <span class="right" style="color:var(--muted);font-size:11px;font-weight:normal">チェックした動画が対象です</span></h2>
+      <div class="body">
+        <div class="list-tools" style="margin-top:0">
+          <button id="expAllBtn">すべて選択</button>
+          <button id="expNoneBtn">選択解除</button>
+          <select id="expGroupSel" style="flex:0 1 auto" title="グループ単位で選択"></select>
+          <span id="expCount" class="hint" style="margin:0"></span>
+        </div>
+        <div id="exportList"></div>
+        <div class="row">
+          <button id="xlsxBtn" class="primary">Excel（サンプルごとにシート）＋ログ</button>
+          <button id="zipOverlayBtn">オーバーレイ動画を一括ダウンロード (ZIP)</button>
+        </div>
+        <div class="hint">Excel には「Summary」（全サンプルの条件と最大変位・最大力）、「Overlay」（Web の重ね描画と同じ配色の重ね描画グラフ）、動画ごとのシート（A〜Q 列に測定データ、S〜T 列に解析条件、V 列から右に Web と同じ 6 種類のグラフ）が入ります。グラフはセルを参照しているので、値を編集するとグラフも更新されます。Excel を保存すると、同じ名前のログ（_trackerlog.json、読み込んでいる全動画の条件と結果）も自動で保存されます。初回はブラウザが「複数ファイルのダウンロード」の許可を求めることがあるので、許可してください。オーバーレイ動画はこのページを開いている間だけ保持されるため、ページを閉じる前に保存してください。</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="colorPop" role="dialog" aria-label="グループの色">
+  <div class="ttl">グループの色</div>
+  <div class="grid" id="colorGrid"></div>
+  <div class="custom">
+    <input type="color" id="colorCustom" title="その他の色">
+    <input type="text" id="colorHex" maxlength="7" placeholder="#RRGGBB">
+  </div>
+</div>
+<video id="vid" muted playsinline preload="auto" style="display:none"></video>
+<canvas id="workCanvas" style="display:none"></canvas>
+
+<script>
+"use strict";
+const APP_VERSION = "2.7.0";
+const LOG_FORMAT = "oitem-pillar-tracker-log";
+
+// ------------------------------------------------------------------
+// 状態
+// ------------------------------------------------------------------
+const DEFAULT_SETTINGS = {
+  fps: 50, fpsSource: "default",
+  margin: 40, polarity: "dark", minScore: 0.5,
+  roiShape: "circle", roi: null,
+  umPerPx: 24 / 11, umPerPxText: "24/11", kMode: "direct", k_N_per_m: 0.748, E_MPa: 2, D_um: 10, L_um: 30,
+  recordOverlay: true, showTrajectory: true
+};
+const TRACKING_KEYS = ["fps", "margin", "polarity", "roi"];
+
+const state = {
+  videos: [],
+  activeId: null,
+  viewFrame: 0,
+  running: false,
+  busy: false,
+  abort: false,
+  groups: [],          // { id, name, color }
+  groupFilter: "all",  // "all" | "none" | group id
+  plotMode: "single",  // "single" | "overlay"
+  colorBy: "group"     // "group" | "video"
+};
+let nextId = 1;
+let nextGroupId = 1;
+const GROUP_PALETTE = ["#2563eb", "#e4572e", "#16a34a", "#9333ea", "#d97706", "#0891b2", "#db2777", "#65a30d", "#475569", "#b45309"];
+const VIDEO_PALETTE = ["#2563eb", "#e4572e", "#16a34a", "#9333ea", "#d97706", "#0891b2", "#db2777", "#65a30d", "#7c3aed", "#0f766e", "#c2410c", "#4f46e5"];
+const NO_GROUP_COLOR = "#8a94a6";
+let cvReady = false;
+let loadedVideoId = null;
+
+const $ = id => document.getElementById(id);
+const vid = $("vid");
+const viewCanvas = $("viewCanvas");
+const vctx = viewCanvas.getContext("2d");
+const workCanvas = $("workCanvas");
+const wctx = workCanvas.getContext("2d", { willReadFrequently: true });
+
+function active() { return state.videos.find(v => v.id === state.activeId) || null; }
+function cloneObj(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
+
+function newEntry(name, size) {
+  return {
+    id: nextId++, name, size,
+    file: null, url: null,
+    width: 0, height: 0, duration: 0,
+    settings: cloneObj(DEFAULT_SETTINGS),
+    firstFrame: null,
+    results: [],
+    stale: false,
+    status: "new",
+    error: "",
+    analyzedAt: "",
+    logResults: null,
+    logSettings: null,
+    repro: null,
+    groupId: null,
+    visible: true,
+    exportSel: true,
+    checked: false,
+    overlayBlob: null, overlayUrl: null, overlayExt: "mp4"
+  };
+}
+
+// ------------------------------------------------------------------
+// グループ（色タグ）
+// ------------------------------------------------------------------
+function groupOf(e) { return state.groups.find(g => g.id === e.groupId) || null; }
+function groupColor(e) { const g = groupOf(e); return g ? g.color : NO_GROUP_COLOR; }
+function groupName(e) { const g = groupOf(e); return g ? g.name : ""; }
+function addGroup(name, color) {
+  const used = new Set(state.groups.map(g => g.color));
+  const c = color || GROUP_PALETTE.find(p => !used.has(p)) || GROUP_PALETTE[state.groups.length % GROUP_PALETTE.length];
+  const g = { id: nextGroupId++, name: name || `グループ ${state.groups.length + 1}`, color: c };
+  state.groups.push(g);
+  return g;
+}
+function findOrCreateGroup(name, color) {
+  if (!name) return null;
+  return state.groups.find(g => g.name === name) || addGroup(name, color);
+}
+function deleteGroup(id) {
+  const g = state.groups.find(x => x.id === id);
+  if (!g) return;
+  const n = state.videos.filter(v => v.groupId === id).length;
+  if (n && !confirm(`「${g.name}」を削除しますか？割り当て済みの ${n} 本は「未分類」になります。`)) return;
+  state.groups = state.groups.filter(x => x.id !== id);
+  for (const v of state.videos) if (v.groupId === id) v.groupId = null;
+  if (state.groupFilter === String(id)) state.groupFilter = "all";
+  refreshGroupsUi();
+}
+function refreshGroupsUi() {
+  renderExportList();
+  renderGroupList();
+  renderVideoList();
+  renderOverlayPanel();
+  drawPlots();
+}
+function renderGroupList() {
+  const ul = $("groupList");
+  ul.innerHTML = "";
+  if (!state.groups.length) {
+    ul.innerHTML = '<li class="empty" style="justify-content:center">グループはまだありません</li>';
+  }
+  for (const g of state.groups) {
+    const li = document.createElement("li");
+    const n = state.videos.filter(v => v.groupId === g.id).length;
+    li.innerHTML = `<button class="swatch-btn" title="色を変更"></button><input type="text" title="名前を編集"><span class="badge">${n}</span><button class="rm" title="グループを削除">×</button>`;
+    const col = li.querySelector(".swatch-btn");
+    const txt = li.querySelector("input");
+    col.style.background = g.color;
+    col.onclick = ev => { ev.stopPropagation(); openColorPop(col, g); };
+    txt.value = g.name;
+    txt.onchange = () => { g.name = txt.value.trim() || g.name; txt.value = g.name; refreshGroupsUi(); };
+    li.querySelector(".rm").onclick = () => deleteGroup(g.id);
+    ul.appendChild(li);
+  }
+  // フィルタと一括割り当てのプルダウンも更新
+  const opts = [["all", "すべての動画"], ["none", "未分類のみ"], ...state.groups.map(g => [String(g.id), g.name])];
+  const gf = $("groupFilter");
+  if (!opts.some(o => o[0] === state.groupFilter)) state.groupFilter = "all";
+  gf.innerHTML = "";
+  for (const [v, t] of opts) gf.add(new Option(t, v));
+  gf.value = state.groupFilter;
+  const bs = $("bulkGroupSelect");
+  const keep = bs.value;
+  bs.innerHTML = "";
+  bs.add(new Option("未分類", "none"));
+  for (const g of state.groups) bs.add(new Option(g.name, String(g.id)));
+  if ([...bs.options].some(o => o.value === keep)) bs.value = keep;
+}
+function filteredVideos() {
+  if (state.groupFilter === "all") return state.videos;
+  if (state.groupFilter === "none") return state.videos.filter(v => !groupOf(v));
+  const id = Number(state.groupFilter);
+  return state.videos.filter(v => v.groupId === id);
+}
+function makeGroupSelect(e) {
+  const sel = document.createElement("select");
+  sel.className = "gsel";
+  sel.title = "グループを割り当て";
+  sel.add(new Option("未分類", "none"));
+  for (const g of state.groups) sel.add(new Option(g.name, String(g.id)));
+  sel.value = groupOf(e) ? String(e.groupId) : "none";
+  sel.onclick = ev => ev.stopPropagation();
+  sel.onchange = () => {
+    e.groupId = sel.value === "none" ? null : Number(sel.value);
+    refreshGroupsUi();
+  };
+  return sel;
+}
+function assignChecked() {
+  const val = $("bulkGroupSelect").value;
+  const gid = val === "none" ? null : Number(val);
+  const targets = state.videos.filter(v => v.checked);
+  for (const v of targets) { v.groupId = gid; v.checked = false; }
+  refreshGroupsUi();
+  setStatus(`${targets.length} 本を「${gid ? state.groups.find(g => g.id === gid).name : "未分類"}」に割り当てました。`);
+}
+$("addGroupBtn").onclick = () => {
+  const g = addGroup();
+  refreshGroupsUi();
+  const inputs = $("groupList").querySelectorAll('input[type=text]');
+  const last = inputs[inputs.length - 1];
+  if (last) { last.focus(); last.select(); }
+  return g;
+};
+$("groupFilter").onchange = () => { state.groupFilter = $("groupFilter").value; renderVideoList(); };
+$("bulkAssignBtn").onclick = assignChecked;
+$("checkAllVideos").onchange = () => {
+  const on = $("checkAllVideos").checked;
+  for (const v of filteredVideos()) v.checked = on;
+  renderVideoList();
+};
+
+// ------------------------------------------------------------------
+// OpenCV 読み込み
+// ------------------------------------------------------------------
+function setCvStatus(text, cls) {
+  const el = $("cvStatus");
+  el.textContent = text;
+  el.className = cls || "";
+}
+function markCvReady() {
+  if (cvReady) return;
+  cvReady = true;
+  setCvStatus("OpenCV.js 準備完了", "ok");
+  updateButtons();
+}
+function onCvScriptLoaded() {
+  const c = window.cv;
+  if (!c) return false;
+  if (typeof c.Mat === "function") { markCvReady(); return true; }
+  if (typeof c.then === "function") {
+    // thenable の Module。await すると自己解決ループになるため then を直接使う
+    c.then(m => { window.cv = m; markCvReady(); });
+  } else {
+    c.onRuntimeInitialized = markCvReady;
+  }
+  const t0 = Date.now();
+  const timer = setInterval(() => {
+    if (cvReady) { clearInterval(timer); return; }
+    if (window.cv && typeof window.cv.Mat === "function") { clearInterval(timer); markCvReady(); }
+    else if (Date.now() - t0 > 30000) { clearInterval(timer); setCvStatus("OpenCV.js の初期化に失敗しました", "err"); }
+  }, 100);
+  return true;
+}
+(function loadOpenCv() {
+  const candidates = [
+    "./opencv.js",
+    "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+    "https://docs.opencv.org/4.10.0/opencv.js",
+    "https://docs.opencv.org/4.x/opencv.js"
+  ];
+  let i = 0;
+  function tryNext() {
+    if (i >= candidates.length) { setCvStatus("OpenCV.js を読み込めませんでした（ネットワークを確認してください）", "err"); return; }
+    const url = candidates[i++];
+    setCvStatus("OpenCV.js 読み込み中... " + url.replace(/^https?:\/\//, "").slice(0, 40));
+    const s = document.createElement("script");
+    s.src = url;
+    s.async = true;
+    s.onload = () => { if (!onCvScriptLoaded()) tryNext(); };
+    s.onerror = () => { s.remove(); tryNext(); };
+    document.head.appendChild(s);
+  }
+  tryNext();
+})();
+
+// ------------------------------------------------------------------
+// ユーティリティ
+// ------------------------------------------------------------------
+function setStatus(text, isErr) {
+  const el = $("statusText");
+  el.textContent = text;
+  el.className = isErr ? "err" : "";
+}
+function setProgress(frac) { $("progressBar").style.width = Math.max(0, Math.min(1, frac)) * 100 + "%"; }
+function fmt(v, d) { return v == null || !Number.isFinite(v) ? "" : v.toFixed(d); }
+function timestamp() {
+  const n = new Date(), p = x => String(x).padStart(2, "0");
+  return `${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}_${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}`;
+}
+function baseName(name) { return (name || "video").replace(/\.[^/.]+$/, ""); }
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function frameCount(e) {
+  if (!e.duration || !e.settings.fps) return e.results.length;
+  return Math.max(1, Math.floor(e.duration * e.settings.fps + 1e-6));
+}
+function frameTime(e, f) {
+  // 不具合修正：フレーム境界ではなくフレーム中央をシークする
+  const dt = 1 / e.settings.fps;
+  return Math.min((f + 0.5) * dt, Math.max(0, e.duration - 1e-4));
+}
+
+// ------------------------------------------------------------------
+// 動画要素の制御
+// ------------------------------------------------------------------
+function loadIntoVideoEl(e) {
+  if (loadedVideoId === e.id && vid.readyState >= 2) return Promise.resolve();
+  loadedVideoId = null;
+  return new Promise((resolve, reject) => {
+    const ok = () => { cleanup(); loadedVideoId = e.id; resolve(); };
+    const ng = () => { cleanup(); reject(new Error("この動画形式はブラウザで読み込めません")); };
+    function cleanup() { vid.removeEventListener("loadeddata", ok); vid.removeEventListener("error", ng); }
+    vid.addEventListener("loadeddata", ok);
+    vid.addEventListener("error", ng);
+    vid.src = e.url;
+    vid.load();
+  });
+}
+function seekTo(t) {
+  return new Promise(resolve => {
+    if (Math.abs(vid.currentTime - t) < 1e-7 && !vid.seeking && vid.readyState >= 2) { resolve(); return; }
+    let done = false;
+    const fin = () => {
+      if (done) return;
+      done = true;
+      vid.removeEventListener("seeked", fin);
+      clearTimeout(to);
+      resolve();
+    };
+    vid.addEventListener("seeked", fin);
+    const to = setTimeout(fin, 4000);
+    vid.currentTime = t;
+  });
+}
+async function captureFirstFrame(e) {
+  await loadIntoVideoEl(e);
+  await seekTo(frameTime(e, 0));
+  workCanvas.width = e.width;
+  workCanvas.height = e.height;
+  wctx.drawImage(vid, 0, 0, e.width, e.height);
+  e.firstFrame = wctx.getImageData(0, 0, e.width, e.height);
+}
+async function prepareEntry(e) {
+  e.status = "loading";
+  renderVideoList();
+  try {
+    await loadIntoVideoEl(e);
+    e.width = vid.videoWidth;
+    e.height = vid.videoHeight;
+    e.duration = vid.duration;
+    // FPS は自動推定せず、既定値 50 fps（変更は手入力）
+    await captureFirstFrame(e);
+    e.status = e.results.length ? "tracked" : "ready";
+    e.error = "";
+  } catch (err) {
+    e.status = "error";
+    e.error = err.message || String(err);
+  }
+}
+
+// ------------------------------------------------------------------
+// 動画の追加・削除
+// ------------------------------------------------------------------
+async function addVideoFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(f.name));
+  if (!files.length) return;
+  state.busy = true;
+  updateButtons();
+  const prepared = [];
+  for (const f of files) {
+    let e = state.videos.find(v => v.name === f.name && !v.file);
+    if (e) {
+      if (e.size && e.size !== f.size) e.error = "ログ記録時とファイルサイズが異なります";
+    } else {
+      e = newEntry(f.name, f.size);
+      state.videos.push(e);
+    }
+    e.file = f;
+    e.size = f.size;
+    e.url = URL.createObjectURL(f);
+    prepared.push(e);
+  }
+  if (!state.activeId) state.activeId = prepared[0].id;
+  renderVideoList();
+  for (let i = 0; i < prepared.length; i++) {
+    setStatus(`動画を準備中 (${i + 1}/${prepared.length}): ${prepared[i].name}`);
+    await prepareEntry(prepared[i]);
+    renderVideoList();
+  }
+  state.busy = false;
+  setStatus(`${prepared.length} 本の動画を読み込みました。`);
+  await selectVideo(state.activeId, true);
+}
+function removeVideo(id) {
+  if (state.running) return;
+  const idx = state.videos.findIndex(v => v.id === id);
+  if (idx < 0) return;
+  const e = state.videos[idx];
+  if (e.url) URL.revokeObjectURL(e.url);
+  if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
+  state.videos.splice(idx, 1);
+  if (loadedVideoId === id) loadedVideoId = null;
+  if (state.activeId === id) state.activeId = state.videos[0] ? state.videos[0].id : null;
+  selectVideo(state.activeId, true);
+}
+async function selectVideo(id, force) {
+  if (state.running && !force) return;
+  state.activeId = id;
+  state.viewFrame = 0;
+  renderGroupList();
+  renderVideoList();
+  loadSettingsForm();
+  updateSlider();
+  await renderViewer();
+  renderResults();
+}
+
+// ------------------------------------------------------------------
+// 動画リスト表示
+// ------------------------------------------------------------------
+function statusBadge(e) {
+  if (e.status === "running") return ["解析中", "run"];
+  if (e.status === "loading") return ["準備中", ""];
+  if (e.status === "error") return ["エラー", "err"];
+  if (!e.file) return ["動画なし", "warn"];
+  if (e.results.length && e.stale) return ["要再解析", "warn"];
+  if (e.results.length && e.repro && !e.repro.match) return ["ログと差あり", "warn"];
+  if (e.results.length) return ["解析済", "ok"];
+  if (!e.settings.roi) return ["ROI未設定", ""];
+  return ["未解析", ""];
+}
+function renderVideoList() {
+  const ul = $("videoList");
+  ul.innerHTML = "";
+  const list = filteredVideos();
+  $("videoCount").textContent = state.groupFilter === "all" ? state.videos.length : `${list.length} / ${state.videos.length}`;
+  if (!list.length) {
+    ul.innerHTML = `<li class="empty" style="cursor:default">${state.videos.length ? "このグループの動画はありません" : "動画がありません"}</li>`;
+  }
+  for (const e of list) {
+    const li = document.createElement("li");
+    if (e.id === state.activeId) li.className = "active";
+    const [label, cls] = statusBadge(e);
+    li.title = e.error ? `${e.name}\n${e.error}` : e.name;
+    li.innerHTML = `<input type="checkbox" title="一括操作用に選択"><span class="dot"></span><span class="name"></span><span class="badge ${cls}">${label}</span><button class="rm" title="リストから削除">×</button>`;
+    const chk = li.querySelector("input");
+    chk.checked = e.checked;
+    chk.onclick = ev => ev.stopPropagation();
+    chk.onchange = () => { e.checked = chk.checked; updateBulkBar(); };
+    const dot = li.querySelector(".dot");
+    if (groupOf(e)) dot.style.background = groupColor(e); else dot.classList.add("none");
+    dot.title = groupName(e) || "未分類";
+    li.querySelector(".name").textContent = e.name;
+    li.insertBefore(makeGroupSelect(e), li.querySelector(".badge"));
+    li.onclick = ev => {
+      if (ev.target.classList.contains("rm")) { removeVideo(e.id); return; }
+      if (e.id !== state.activeId) selectVideo(e.id);
+    };
+    ul.appendChild(li);
+  }
+  $("runAllBtn").textContent = state.groupFilter === "all" ? "全動画を解析" : "表示中の動画を解析";
+  updateBulkBar();
+  updateButtons();
+}
+function updateBulkBar() {
+  const n = state.videos.filter(v => v.checked).length;
+  $("bulkBar").style.display = n ? "" : "none";
+  $("bulkCount").textContent = `${n} 本を`;
+  const list = filteredVideos();
+  const cnt = list.filter(v => v.checked).length;
+  const all = $("checkAllVideos");
+  all.checked = list.length > 0 && cnt === list.length;
+  all.indeterminate = cnt > 0 && cnt < list.length;
+}
+function updateButtons() {
+  const e = active();
+  const idle = !state.running && !state.busy;
+  $("runActiveBtn").disabled = !idle || !cvReady || !e || !e.file || !e.settings.roi || !e.firstFrame;
+  $("runAllBtn").disabled = !idle || !cvReady || !filteredVideos().some(v => v.file && v.settings.roi && v.firstFrame);
+  $("abortBtn").disabled = !state.running;
+  $("addVideoBtn").disabled = !idle;
+  $("loadLogBtn").disabled = !idle;
+  $("saveLogBtn").disabled = !state.videos.length;
+  $("csvBtn").disabled = !e || !e.results.length;
+  updateExportButtons();
+  $("overlayBtn").disabled = !e || !e.overlayBlob;
+  $("pngBtn").disabled = !state.videos.some(v => v.results.length);
+  $("frameSlider").disabled = state.running || !e || !e.file;
+  for (const id of ["firstFrameBtn", "prevFrameBtn", "nextFrameBtn"]) $(id).disabled = state.running || !e || !e.file;
+  for (const el of $("settingsPanel").querySelectorAll("input,select,button")) el.disabled = state.running || !e;
+}
+
+// ------------------------------------------------------------------
+// 解析条件フォーム
+// ------------------------------------------------------------------
+function computeK(s) {
+  if (s.kMode === "geometry") {
+    const E = s.E_MPa * 1e6, D = s.D_um * 1e-6, L = s.L_um * 1e-6;
+    if (!(E > 0 && D > 0 && L > 0)) return NaN;
+    const kNm = 3 * Math.PI * E * Math.pow(D, 4) / (64 * Math.pow(L, 3));
+    return kNm; // N/m
+  }
+  return s.k_N_per_m;
+}
+function loadSettingsForm() {
+  const e = active();
+  const s = e ? e.settings : DEFAULT_SETTINGS;
+  $("settingsTarget").textContent = e ? e.name : "";
+  $("setFps").value = s.fps;
+  $("fpsSrc").textContent = s.fpsSource === "log" ? "（ログ）" : s.fpsSource === "default" ? "（既定）" : "（手入力）";
+  $("setMargin").value = s.margin;
+  $("setPolarity").value = s.polarity;
+  $("setMinScore").value = s.minScore;
+  $("setUmPerPx").value = s.umPerPxText || String(s.umPerPx);
+  $("setKMode").value = s.kMode;
+  $("setK").value = s.k_N_per_m;
+  $("setE").value = s.E_MPa;
+  $("setD").value = s.D_um;
+  $("setL").value = s.L_um;
+  $("setRecord").checked = s.recordOverlay;
+  $("setTrajectory").checked = s.showTrajectory;
+  const shape = s.roi ? s.roi.type : s.roiShape;
+  setRoiShapeUi(shape);
+  syncRoiInputs();
+  updateKUi();
+  updateButtons();
+}
+function updateKUi() {
+  const e = active();
+  const s = e ? e.settings : DEFAULT_SETTINGS;
+  $("kDirectBox").style.display = s.kMode === "direct" ? "" : "none";
+  $("kGeomBox").style.display = s.kMode === "geometry" ? "" : "none";
+  const k = computeK(s);
+  $("scaleResult").textContent = `スケール = ${Number(s.umPerPx).toPrecision(7)} µm/px`;
+  $("kResult").textContent = Number.isFinite(k) ? `使用する k = ${k.toPrecision(4)} N/m（F [µN] = k [N/m] × d [µm]）` : "k を計算できません（値を確認してください）";
+}
+function setRoiShapeUi(shape) {
+  for (const b of $("roiShapeSeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.shape === shape);
+  const isRect = shape === "rect";
+  $("lblA").textContent = isRect ? "x" : "cx";
+  $("lblB").textContent = isRect ? "y" : "cy";
+  $("lblC").textContent = isRect ? "w" : "r";
+  $("roiDField").style.display = isRect ? "" : "none";
+}
+function syncRoiInputs() {
+  const e = active();
+  const r = e && e.settings.roi;
+  if (!r) { for (const id of ["roiA", "roiB", "roiC", "roiD"]) $(id).value = ""; return; }
+  if (r.type === "rect") { $("roiA").value = r.x; $("roiB").value = r.y; $("roiC").value = r.w; $("roiD").value = r.h; }
+  else { $("roiA").value = r.cx; $("roiB").value = r.cy; $("roiC").value = r.r; $("roiD").value = ""; }
+}
+function onSettingChanged(key, value) {
+  const e = active();
+  if (!e) return;
+  const old = e.settings[key];
+  e.settings[key] = value;
+  if (TRACKING_KEYS.includes(key) && e.results.length && JSON.stringify(old) !== JSON.stringify(value)) e.stale = true;
+  renderVideoList();
+  renderResults();
+}
+function bindNum(id, key, after) {
+  $(id).addEventListener("change", async () => {
+    const v = Number($(id).value);
+    if (!Number.isFinite(v)) { loadSettingsForm(); return; }
+    onSettingChanged(key, v);
+    if (after) await after(v);
+    updateKUi();
+  });
+}
+bindNum("setFps", "fps", async v => {
+  const e = active();
+  if (!e || v <= 0) return;
+  e.settings.fpsSource = "manual";
+  $("fpsSrc").textContent = "（手入力）";
+  if (e.file) { await captureFirstFrame(e); state.viewFrame = 0; updateSlider(); await renderViewer(); }
+});
+bindNum("setMargin", "margin");
+bindNum("setMinScore", "minScore");
+function parseScale(text) {
+  const t = String(text).trim().replace(/／/g, "/").replace(/\s+/g, "");
+  const m = t.match(/^([0-9]*\.?[0-9]+(?:e-?\d+)?)(?:\/([0-9]*\.?[0-9]+(?:e-?\d+)?))?$/i);
+  if (!m) return NaN;
+  const v = m[2] ? Number(m[1]) / Number(m[2]) : Number(m[1]);
+  return v > 0 && Number.isFinite(v) ? v : NaN;
+}
+$("setUmPerPx").addEventListener("change", () => {
+  const e = active();
+  if (!e) return;
+  const text = $("setUmPerPx").value.trim();
+  const v = parseScale(text);
+  if (!Number.isFinite(v)) { alert("スケールは数値または分数（例: 24/11）で入力してください"); loadSettingsForm(); return; }
+  e.settings.umPerPxText = text;
+  onSettingChanged("umPerPx", v);
+  updateKUi();
+});
+bindNum("setK", "k_N_per_m");
+bindNum("setE", "E_MPa");
+bindNum("setD", "D_um");
+bindNum("setL", "L_um");
+$("setPolarity").onchange = () => onSettingChanged("polarity", $("setPolarity").value);
+$("setKMode").onchange = () => { onSettingChanged("kMode", $("setKMode").value); updateKUi(); };
+$("setRecord").onchange = () => onSettingChanged("recordOverlay", $("setRecord").checked);
+$("setTrajectory").onchange = () => { onSettingChanged("showTrajectory", $("setTrajectory").checked); renderViewer(); };
+
+for (const b of $("roiShapeSeg").querySelectorAll("button")) {
+  b.onclick = () => {
+    const e = active();
+    if (!e) return;
+    e.settings.roiShape = b.dataset.shape;
+    setRoiShapeUi(b.dataset.shape);
+    if (e.settings.roi && e.settings.roi.type !== b.dataset.shape) {
+      // 形状を切り替えたら、同じ中心・大きさで変換する
+      const r = e.settings.roi;
+      let nr;
+      if (b.dataset.shape === "rect") nr = { type: "rect", x: r.cx - r.r, y: r.cy - r.r, w: 2 * r.r, h: 2 * r.r };
+      else nr = { type: "circle", cx: Math.round(r.x + r.w / 2), cy: Math.round(r.y + r.h / 2), r: Math.round(Math.min(r.w, r.h) / 2) };
+      setRoi(nr);
+    }
+  };
+}
+$("applyRoiBtn").onclick = () => {
+  const e = active();
+  if (!e || !e.width) { alert("先に動画を読み込んでください"); return; }
+  const shape = e.settings.roiShape;
+  const a = Number($("roiA").value), b = Number($("roiB").value), c = Number($("roiC").value), d = Number($("roiD").value);
+  if (![a, b, c].every(Number.isFinite) || $("roiA").value === "" || $("roiC").value === "") { alert("ROI の数値を入力してください"); return; }
+  if (shape === "rect") {
+    if (!Number.isFinite(d) || c < 3 || d < 3) { alert("四角 ROI は x, y, w, h を入力してください（w, h ≥ 3）"); return; }
+    setRoi({ type: "rect", x: a, y: b, w: c, h: d });
+  } else {
+    if (c < 3) { alert("円 ROI は cx, cy, r を入力してください（r ≥ 3）"); return; }
+    setRoi({ type: "circle", cx: a, cy: b, r: c });
+  }
+};
+$("copyRoiBtn").onclick = () => {
+  const e = active();
+  const r = e && e.settings.roi;
+  if (!r) { alert("ROI が設定されていません"); return; }
+  const text = r.type === "rect" ? `rect, x=${r.x}, y=${r.y}, w=${r.w}, h=${r.h}` : `circle, cx=${r.cx}, cy=${r.cy}, r=${r.r}`;
+  navigator.clipboard.writeText(text).then(() => setStatus("ROI をコピーしました: " + text), () => alert(text));
+};
+$("clearRoiBtn").onclick = () => setRoi(null);
+$("applyAllBtn").onclick = async () => {
+  const e = active();
+  if (!e) return;
+  const keys = ["fps", "fpsSource", "margin", "polarity", "minScore", "umPerPx", "umPerPxText", "kMode", "k_N_per_m", "E_MPa", "D_um", "L_um", "recordOverlay", "showTrajectory"];
+  const refetch = [];
+  for (const v of state.videos) {
+    if (v === e) continue;
+    if (v.settings.fps !== e.settings.fps && v.file) refetch.push(v);
+    for (const k of keys) {
+      if (TRACKING_KEYS.includes(k) && v.results.length && v.settings[k] !== e.settings[k]) v.stale = true;
+      v.settings[k] = e.settings[k];
+    }
+  }
+  renderVideoList();
+  // FPS が変わった動画は1フレーム目（フレーム中央の時刻）を取り直す
+  if (refetch.length) {
+    state.busy = true; updateButtons();
+    for (const v of refetch) { try { await captureFirstFrame(v); } catch (err) { v.error = err.message; } }
+    state.busy = false;
+    await renderViewer();
+  }
+  updateButtons();
+  setStatus(`${state.videos.length - 1} 本の動画に条件を適用しました（ROI は各動画のまま）。`);
+};
+
+// ------------------------------------------------------------------
+// ROI 操作
+// ------------------------------------------------------------------
+function clampRoi(r, W, H) {
+  if (!r) return r;
+  if (r.type === "rect") {
+    r.w = Math.round(Math.max(3, Math.min(r.w, W)));
+    r.h = Math.round(Math.max(3, Math.min(r.h, H)));
+    r.x = Math.round(Math.max(0, Math.min(r.x, W - r.w)));
+    r.y = Math.round(Math.max(0, Math.min(r.y, H - r.h)));
+  } else {
+    const maxR = Math.max(3, Math.floor(Math.min(W, H) / 2));
+    r.r = Math.round(Math.max(3, Math.min(r.r, maxR)));
+    r.cx = Math.round(Math.max(r.r, Math.min(r.cx, W - r.r)));
+    r.cy = Math.round(Math.max(r.r, Math.min(r.cy, H - r.r)));
+  }
+  return r;
+}
+function roiBox(r) {
+  return r.type === "rect" ? { x: r.x, y: r.y, w: r.w, h: r.h } : { x: r.cx - r.r, y: r.cy - r.r, w: 2 * r.r, h: 2 * r.r };
+}
+function setRoi(r) {
+  const e = active();
+  if (!e) return;
+  if (r) { clampRoi(r, e.width, e.height); e.settings.roiShape = r.type; }
+  onSettingChanged("roi", r ? cloneObj(r) : null);
+  setRoiShapeUi(r ? r.type : e.settings.roiShape);
+  syncRoiInputs();
+  updateButtons();
+  if (state.viewFrame !== 0) { state.viewFrame = 0; updateSlider(); }
+  renderViewer();
+}
+
+const drag = { on: false, mode: null, handle: null, start: null, roi0: null, preview: null };
+function canvasPoint(ev) {
+  const r = viewCanvas.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) * viewCanvas.width / r.width, y: (ev.clientY - r.top) * viewCanvas.height / r.height };
+}
+function pxScale() {
+  const r = viewCanvas.getBoundingClientRect();
+  return r.width ? viewCanvas.width / r.width : 1;
+}
+function getHandles(r) {
+  if (!r) return [];
+  if (r.type === "rect") {
+    const { x, y, w, h } = r;
+    return [
+      { name: "nw", x, y }, { name: "n", x: x + w / 2, y }, { name: "ne", x: x + w, y },
+      { name: "e", x: x + w, y: y + h / 2 }, { name: "se", x: x + w, y: y + h },
+      { name: "s", x: x + w / 2, y: y + h }, { name: "sw", x, y: y + h }, { name: "w", x, y: y + h / 2 }
+    ];
+  }
+  return [{ name: "radius", x: r.cx + r.r, y: r.cy }];
+}
+function hitHandle(r, p) {
+  const tol = 10 * pxScale();
+  for (const h of getHandles(r)) if (Math.abs(p.x - h.x) <= tol && Math.abs(p.y - h.y) <= tol) return h.name;
+  return null;
+}
+function insideRoi(r, p) {
+  if (!r) return false;
+  if (r.type === "rect") return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+  return Math.hypot(p.x - r.cx, p.y - r.cy) <= r.r;
+}
+function canEditRoi() {
+  const e = active();
+  return e && e.firstFrame && !state.running && state.viewFrame === 0;
+}
+viewCanvas.addEventListener("pointerdown", ev => {
+  if (!canEditRoi()) return;
+  const e = active();
+  const p = canvasPoint(ev);
+  const r = e.settings.roi;
+  viewCanvas.setPointerCapture(ev.pointerId);
+  viewCanvas.focus();
+  drag.on = true; drag.start = p; drag.roi0 = cloneObj(r);
+  const h = hitHandle(r, p);
+  if (r && h) { drag.mode = "resize"; drag.handle = h; }
+  else if (r && insideRoi(r, p)) { drag.mode = "move"; }
+  else { drag.mode = "new"; drag.preview = null; }
+});
+viewCanvas.addEventListener("pointermove", ev => {
+  const e = active();
+  if (!e || !e.firstFrame) return;
+  const p = canvasPoint(ev);
+  if (!drag.on) {
+    if (!canEditRoi()) { viewCanvas.style.cursor = "default"; return; }
+    const r = e.settings.roi;
+    const h = hitHandle(r, p);
+    const cur = { nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize", n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize", radius: "ew-resize" };
+    viewCanvas.style.cursor = h ? cur[h] : insideRoi(r, p) ? "move" : "crosshair";
+    return;
+  }
+  const dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+  const r0 = drag.roi0;
+  if (drag.mode === "move") {
+    const r = cloneObj(r0);
+    if (r.type === "rect") { r.x = r0.x + dx; r.y = r0.y + dy; } else { r.cx = r0.cx + dx; r.cy = r0.cy + dy; }
+    e.settings.roi = clampRoi(r, e.width, e.height);
+  } else if (drag.mode === "resize") {
+    const r = cloneObj(r0);
+    if (r.type === "rect") {
+      let L = r0.x, T = r0.y, R = r0.x + r0.w, B = r0.y + r0.h;
+      if (drag.handle.includes("w")) L = Math.min(p.x, R - 5);
+      if (drag.handle.includes("e")) R = Math.max(p.x, L + 5);
+      if (drag.handle.includes("n")) T = Math.min(p.y, B - 5);
+      if (drag.handle.includes("s")) B = Math.max(p.y, T + 5);
+      Object.assign(r, { x: L, y: T, w: R - L, h: B - T });
+    } else {
+      r.r = Math.hypot(p.x - r0.cx, p.y - r0.cy);
+    }
+    e.settings.roi = clampRoi(r, e.width, e.height);
+  } else {
+    const shape = e.settings.roiShape;
+    drag.preview = shape === "rect"
+      ? { type: "rect", x: Math.min(drag.start.x, p.x), y: Math.min(drag.start.y, p.y), w: Math.abs(dx), h: Math.abs(dy) }
+      : { type: "circle", cx: drag.start.x, cy: drag.start.y, r: Math.hypot(dx, dy) };
+  }
+  drawFirstFrameView();
+  syncRoiInputs();
+});
+function endDrag() {
+  if (!drag.on) return;
+  drag.on = false;
+  const e = active();
+  if (!e) return;
+  if (drag.mode === "new") {
+    const pr = drag.preview;
+    drag.preview = null;
+    const big = pr && (pr.type === "rect" ? pr.w >= 3 && pr.h >= 3 : pr.r >= 3);
+    if (big) { setRoi(pr); setStatus("ROI を設定しました。"); }
+    else drawFirstFrameView();
+  } else {
+    const r = e.settings.roi;
+    e.settings.roi = drag.roi0;
+    setRoi(r);
+  }
+}
+viewCanvas.addEventListener("pointerup", endDrag);
+viewCanvas.addEventListener("pointercancel", endDrag);
+viewCanvas.addEventListener("keydown", ev => {
+  if (!canEditRoi()) return;
+  const e = active();
+  const r = e.settings.roi;
+  if (!r) return;
+  const step = ev.shiftKey ? 10 : 1;
+  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[ev.key];
+  if (!d) return;
+  ev.preventDefault();
+  const n = cloneObj(r);
+  if (n.type === "rect") { n.x += d[0]; n.y += d[1]; } else { n.cx += d[0]; n.cy += d[1]; }
+  setRoi(n);
+});
+
+// ------------------------------------------------------------------
+// ビューア描画
+// ------------------------------------------------------------------
+function lw(e) { return Math.max(1.5, (e ? e.width : viewCanvas.width) / 480); }
+function drawRoiShape(ctx, r, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  if (r.type === "rect") ctx.strokeRect(r.x, r.y, r.w, r.h);
+  else { ctx.beginPath(); ctx.arc(r.cx, r.cy, r.r, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+}
+function drawHandles(ctx, r, e) {
+  const hs = Math.max(7, 8 * pxScale());
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#ff3b30";
+  ctx.lineWidth = Math.max(1, lw(e) * 0.7);
+  for (const h of getHandles(r)) {
+    ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+    ctx.strokeRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+  }
+  if (r.type === "circle") {
+    ctx.beginPath(); ctx.moveTo(r.cx - hs, r.cy); ctx.lineTo(r.cx + hs, r.cy);
+    ctx.moveTo(r.cx, r.cy - hs); ctx.lineTo(r.cx, r.cy + hs); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawFirstFrameView() {
+  const e = active();
+  if (!e || !e.firstFrame) return;
+  if (viewCanvas.width !== e.width || viewCanvas.height !== e.height) { viewCanvas.width = e.width; viewCanvas.height = e.height; }
+  vctx.putImageData(e.firstFrame, 0, 0);
+  const r = e.settings.roi;
+  if (r) { drawRoiShape(vctx, r, "#ff3b30", lw(e)); drawHandles(vctx, r, e); }
+  if (drag.on && drag.mode === "new" && drag.preview) drawRoiShape(vctx, drag.preview, "#ff3b30", lw(e), [6, 4]);
+  // 1フレーム目の検出結果があれば赤点を表示
+  const row = e.results[0];
+  if (row && row.x != null) drawPoint(vctx, row.x, row.y, e);
+}
+function drawPoint(ctx, x, y, e) {
+  ctx.save();
+  ctx.fillStyle = "#ff3b30";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = Math.max(1, lw(e) * 0.6);
+  ctx.beginPath(); ctx.arc(x, y, Math.max(3.5, lw(e) * 2.2), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function drawTrajectory(ctx, rows, upto, e) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,165,0,0.95)";
+  ctx.lineWidth = lw(e);
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i <= upto && i < rows.length; i++) {
+    const r = rows[i];
+    if (r.x == null) continue;
+    if (!started) { ctx.moveTo(r.x, r.y); started = true; } else ctx.lineTo(r.x, r.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+function drawTrackOverlay(ctx, e, rows, f) {
+  const row = rows[f];
+  const r = e.settings.roi;
+  if (row && row.x != null && r) {
+    const box = roiBox(r);
+    const m = { x: row.mx, y: row.my };
+    ctx.save();
+    ctx.strokeStyle = "#34c759";
+    ctx.lineWidth = lw(e);
+    if (r.type === "rect") ctx.strokeRect(m.x, m.y, box.w, box.h);
+    else { ctx.beginPath(); ctx.arc(m.x + box.w / 2, m.y + box.h / 2, r.r, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (e.settings.showTrajectory) drawTrajectory(ctx, rows, f, e);
+  if (row && row.x != null) drawPoint(ctx, row.x, row.y, e);
+  // 情報ラベル
+  ctx.save();
+  const fs = Math.max(12, Math.round(e.width / 55));
+  ctx.font = `${fs}px sans-serif`;
+  const t = (f / e.settings.fps).toFixed(3);
+  const label = row && row.x != null ? `frame ${f}  t=${t}s  score=${row.score.toFixed(3)}` : `frame ${f}  t=${t}s  未検出`;
+  const w = ctx.measureText(label).width;
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(6, 6, w + 12, fs + 10);
+  ctx.fillStyle = row && row.x != null ? "#fff" : "#ffb4ab";
+  ctx.fillText(label, 12, 6 + fs + 1);
+  ctx.restore();
+}
+let viewToken = 0;
+async function renderViewer() {
+  const e = active();
+  const ph = $("viewPlaceholder");
+  $("viewerTitle").textContent = e ? `ビューア — ${e.name}` : "ビューア";
+  if (!e) { ph.style.display = ""; ph.textContent = "左のパネルから動画を追加してください"; vctx.clearRect(0, 0, viewCanvas.width, viewCanvas.height); updateModeLabel(); return; }
+  if (!e.file) {
+    ph.style.display = "";
+    ph.textContent = `「${e.name}」はログから読み込んだ結果のみです。同じ名前の動画を追加すると紐づきます。`;
+    vctx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+    updateModeLabel();
+    return;
+  }
+  if (!e.firstFrame) { ph.style.display = ""; ph.textContent = e.status === "error" ? "動画を読み込めませんでした: " + e.error : "準備中..."; updateModeLabel(); return; }
+  ph.style.display = "none";
+  updateModeLabel();
+  if (state.viewFrame === 0) { drawFirstFrameView(); return; }
+  const token = ++viewToken;
+  const f = state.viewFrame;
+  await loadIntoVideoEl(e);
+  await seekTo(frameTime(e, f));
+  if (token !== viewToken || state.running) return;
+  viewCanvas.width = e.width; viewCanvas.height = e.height;
+  vctx.drawImage(vid, 0, 0, e.width, e.height);
+  if (!e.stale) drawTrackOverlay(vctx, e, e.results, f);
+}
+function updateModeLabel() {
+  const e = active();
+  const el = $("modeLabel");
+  if (!e || !e.firstFrame) { el.textContent = ""; return; }
+  if (state.running) el.textContent = "解析中";
+  else if (state.viewFrame === 0) el.textContent = "ROI 編集モード（1フレーム目）";
+  else el.textContent = "確認モード（ROI 編集は ⏮ で1フレーム目へ）";
+}
+function updateSlider() {
+  const e = active();
+  const n = e ? frameCount(e) : 1;
+  const s = $("frameSlider");
+  s.max = Math.max(0, n - 1);
+  s.value = state.viewFrame;
+  updateFrameLabel();
+}
+function updateFrameLabel() {
+  const e = active();
+  if (!e || !e.settings.fps) { $("frameLabel").textContent = "–"; return; }
+  const n = frameCount(e);
+  $("frameLabel").textContent = `frame ${state.viewFrame} / ${n - 1}   t = ${(state.viewFrame / e.settings.fps).toFixed(3)} s`;
+}
+async function gotoFrame(f) {
+  const e = active();
+  if (!e || state.running) return;
+  const n = frameCount(e);
+  state.viewFrame = Math.max(0, Math.min(n - 1, Math.round(f)));
+  $("frameSlider").value = state.viewFrame;
+  updateFrameLabel();
+  await renderViewer();
+  drawPlots();
+}
+$("frameSlider").addEventListener("input", () => gotoFrame(Number($("frameSlider").value)));
+$("firstFrameBtn").onclick = () => gotoFrame(0);
+$("prevFrameBtn").onclick = () => gotoFrame(state.viewFrame - 1);
+$("nextFrameBtn").onclick = () => gotoFrame(state.viewFrame + 1);
+
+// ------------------------------------------------------------------
+// トラッキング本体
+// ------------------------------------------------------------------
+function toGray(rgba) {
+  const g = new cv.Mat();
+  cv.cvtColor(rgba, g, cv.COLOR_RGBA2GRAY);
+  return g;
+}
+function trackFrame(gray, template, lastX, lastY, s, W, H) {
+  const r = s.roi;
+  const box = roiBox(r);
+  const margin = s.margin;
+  const sx = Math.max(0, Math.round(lastX - margin));
+  const sy = Math.max(0, Math.round(lastY - margin));
+  const sw = Math.min(W - sx, box.w + margin * 2);
+  const sh = Math.min(H - sy, box.h + margin * 2);
+  // 不具合修正：探索領域とテンプレートが同じ大きさでもマッチング可能（< で判定）
+  if (sw < box.w || sh < box.h) return null;
+
+  const search = gray.roi(new cv.Rect(sx, sy, sw, sh));
+  const result = new cv.Mat();
+  cv.matchTemplate(search, template, result, cv.TM_CCOEFF_NORMED);
+  const mm = cv.minMaxLoc(result);
+  const mx = sx + mm.maxLoc.x;
+  const my = sy + mm.maxLoc.y;
+  const score = mm.maxVal;
+  search.delete(); result.delete();
+
+  const c = refineCenter(gray, mx, my, box, s, W, H);
+  if (!c) return { mx, my, score, x: null };
+  return { mx, my, score, x: c.cx, y: c.cy, area: c.area, radius: c.radius };
+}
+function refineCenter(gray, x, y, box, s, W, H) {
+  const pad = 10;
+  const rx = Math.max(0, Math.round(x - pad));
+  const ry = Math.max(0, Math.round(y - pad));
+  const rw = Math.min(W - rx, Math.round(box.w + pad * 2));
+  const rh = Math.min(H - ry, Math.round(box.h + pad * 2));
+  if (rw <= 0 || rh <= 0) return null;
+
+  const local = gray.roi(new cv.Rect(rx, ry, rw, rh));
+  const blur = new cv.Mat();
+  const bin = new cv.Mat();
+  cv.GaussianBlur(local, blur, new cv.Size(5, 5), 0);
+  const type = s.polarity === "bright" ? cv.THRESH_BINARY : cv.THRESH_BINARY_INV;
+  cv.threshold(blur, bin, 0, 255, type + cv.THRESH_OTSU);
+
+  if (s.roi.type === "circle") {
+    const mask = cv.Mat.zeros(bin.rows, bin.cols, cv.CV_8UC1);
+    const lcx = Math.round(x + box.w / 2 - rx);
+    const lcy = Math.round(y + box.h / 2 - ry);
+    cv.circle(mask, new cv.Point(lcx, lcy), Math.round(s.roi.r + pad), new cv.Scalar(255), -1);
+    cv.bitwise_and(bin, mask, bin);
+    mask.delete();
+  }
+
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  cv.findContours(bin, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+  let best = -1, bestArea = 0;
+  for (let i = 0; i < contours.size(); i++) {
+    const cnt = contours.get(i);
+    const a = cv.contourArea(cnt);
+    if (a > bestArea) { bestArea = a; best = i; }
+    cnt.delete();
+  }
+  let out = null;
+  if (best >= 0 && bestArea > 5) {
+    const cnt = contours.get(best);
+    const circ = cv.minEnclosingCircle(cnt);
+    out = { cx: rx + circ.center.x, cy: ry + circ.center.y, area: bestArea, radius: circ.radius };
+    cnt.delete();
+  }
+  local.delete(); blur.delete(); bin.delete(); contours.delete(); hierarchy.delete();
+  return out;
+}
+
+function pickRecorderMime() {
+  if (!window.MediaRecorder) return null;
+  const c = [
+    ["video/mp4;codecs=avc1.42E01E", "mp4"], ["video/mp4;codecs=avc1", "mp4"], ["video/mp4", "mp4"],
+    ["video/webm;codecs=vp9", "webm"], ["video/webm;codecs=vp8", "webm"], ["video/webm", "webm"]
+  ];
+  for (const [m, ext] of c) if (MediaRecorder.isTypeSupported(m)) return { mime: m, ext };
+  return null;
+}
+function makeRecorder(e) {
+  if (!e.settings.recordOverlay || !viewCanvas.captureStream) return null;
+  const pick = pickRecorderMime();
+  if (!pick) return null;
+  const stream = viewCanvas.captureStream(0);
+  const track = stream.getVideoTracks()[0];
+  const rec = new MediaRecorder(stream, { mimeType: pick.mime });
+  const chunks = [];
+  rec.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+  rec.start();
+  return {
+    async frame() { if (track.requestFrame) { track.requestFrame(); await new Promise(r => setTimeout(r, 2)); } },
+    stop() {
+      return new Promise(resolve => {
+        rec.onstop = () => {
+          if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
+          e.overlayBlob = new Blob(chunks, { type: pick.mime });
+          e.overlayUrl = URL.createObjectURL(e.overlayBlob);
+          e.overlayExt = pick.ext;
+          resolve();
+        };
+        rec.stop();
+        stream.getTracks().forEach(t => t.stop());
+      });
+    }
+  };
+}
+
+async function trackVideo(e, label) {
+  const s = e.settings;
+  await loadIntoVideoEl(e);
+  const W = e.width, H = e.height;
+  workCanvas.width = W; workCanvas.height = H;
+  viewCanvas.width = W; viewCanvas.height = H;
+  $("viewPlaceholder").style.display = "none";
+
+  // テンプレートは常に1フレーム目から作る（不具合修正：解析後に ROI を触っても最終フレームから作らない）
+  const box = roiBox(s.roi);
+  const first = cv.matFromImageData(e.firstFrame);
+  const firstGray = toGray(first);
+  const template = firstGray.roi(new cv.Rect(box.x, box.y, box.w, box.h)).clone();
+  first.delete(); firstGray.delete();
+
+  const n = frameCount(e);
+  const rows = [];
+  let lastX = box.x, lastY = box.y;
+  const rec = makeRecorder(e);
+  e.results = [];
+  e.status = "running";
+  renderVideoList();
+
+  try {
+    for (let f = 0; f < n; f++) {
+      if (state.abort) break;
+      await seekTo(frameTime(e, f));
+      wctx.drawImage(vid, 0, 0, W, H);
+      const rgba = cv.imread(workCanvas);
+      const gray = toGray(rgba);
+      rgba.delete();
+      const t = trackFrame(gray, template, lastX, lastY, s, W, H);
+      gray.delete();
+
+      const row = { frame: f, t: f / s.fps, x: null, y: null, mx: null, my: null, score: null, area: null, radius: null };
+      if (t) {
+        row.mx = t.mx; row.my = t.my; row.score = t.score;
+        if (t.x != null) {
+          Object.assign(row, { x: t.x, y: t.y, area: t.area, radius: t.radius });
+          lastX = t.mx; lastY = t.my;
+        }
+      }
+      rows.push(row);
+
+      vctx.drawImage(workCanvas, 0, 0);
+      drawTrackOverlay(vctx, e, rows, f);
+      if (rec) await rec.frame();
+
+      if (f % 5 === 0 || f === n - 1) {
+        setProgress((f + 1) / n);
+        setStatus(`${label}解析中: ${e.name}  ${f + 1} / ${n}`);
+        if (f % 20 === 0) { e.results = rows; drawPlots(); }
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  } finally {
+    template.delete();
+    if (rec) await rec.stop();
+  }
+  e.results = rows;
+  e.stale = false;
+  e.analyzedAt = new Date().toISOString();
+  e.status = "tracked";
+  e.repro = e.logResults ? compareWithLog(e) : null;
+}
+
+async function runAnalysis(list) {
+  if (!cvReady) { alert("OpenCV.js の読み込みが完了していません"); return; }
+  const targets = list.filter(e => e.file && e.settings.roi && e.firstFrame);
+  const skipped = list.length - targets.length;
+  if (!targets.length) { alert("解析できる動画がありません（動画の読み込みと ROI 設定が必要です）"); return; }
+  state.running = true;
+  state.abort = false;
+  updateButtons();
+  updateModeLabel();
+  let done = 0;
+  try {
+    for (let i = 0; i < targets.length; i++) {
+      const e = targets[i];
+      state.activeId = e.id;
+      state.viewFrame = 0;
+      renderVideoList();
+      loadSettingsForm();
+      updateSlider();
+      renderResults();
+      const label = targets.length > 1 ? `[${i + 1}/${targets.length}] ` : "";
+      await trackVideo(e, label);
+      if (state.abort) { e.status = "tracked"; e.stale = true; break; }
+      done++;
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus("解析中にエラーが発生しました: " + (err.message || err), true);
+    const e = active();
+    if (e) { e.status = "error"; e.error = String(err.message || err); }
+  } finally {
+    state.running = false;
+    setProgress(state.abort ? 0 : 1);
+    renderVideoList();
+    updateSlider();
+    renderResults();
+    const pv = $("overlayPreview");
+    const e = active();
+    updateOverlayPreview();
+    await gotoFrame(0);
+  }
+  if (state.abort) setStatus(`中止しました（完了 ${done} 本）。中止した動画は途中までの結果です。`);
+  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本${skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : ""}`);
+}
+$("runActiveBtn").onclick = () => { const e = active(); if (e) runAnalysis([e]); };
+$("runAllBtn").onclick = () => runAnalysis(filteredVideos().slice());
+$("abortBtn").onclick = () => { state.abort = true; setStatus("中止しています..."); };
+
+// ------------------------------------------------------------------
+// 物理量換算
+// ------------------------------------------------------------------
+function derive(e) {
+  const s = e.settings;
+  const k = computeK(s);
+  const u = s.umPerPx;
+  const ref = e.results.find(r => r.x != null);
+  return e.results.map(r => {
+    const o = { ...r, dx: null, dy: null, d: null, dxu: null, dyu: null, du: null, Fx: null, Fy: null, F: null, low: r.score != null && r.score < s.minScore };
+    if (r.x == null || !ref) return o;
+    o.dx = r.x - ref.x; o.dy = r.y - ref.y; o.d = Math.hypot(o.dx, o.dy);
+    o.dxu = o.dx * u; o.dyu = o.dy * u; o.du = o.d * u;
+    o.Fx = k * o.dxu; o.Fy = k * o.dyu; o.F = k * o.du;
+    return o;
+  });
+}
+function summarize(e) {
+  const rows = derive(e);
+  const valid = rows.filter(r => r.x != null);
+  const scores = rows.filter(r => r.score != null).map(r => r.score);
+  const maxBy = key => valid.reduce((m, r) => (r[key] > m ? r[key] : m), -Infinity);
+  return {
+    frames: rows.length,
+    detected: valid.length,
+    max_d_um: valid.length ? maxBy("du") : null,
+    max_F_uN: valid.length ? maxBy("F") : null,
+    mean_score: scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
+    low_score_frames: rows.filter(r => r.low).length,
+    k_N_per_m: computeK(e.settings)
+  };
+}
+function compareWithLog(e) {
+  const a = e.results, b = e.logResults;
+  let maxDiff = 0, detMismatch = 0, compared = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const p = a[i], q = b[i];
+    if ((p.x == null) !== (q.x == null)) { detMismatch++; continue; }
+    if (p.x == null) continue;
+    compared++;
+    maxDiff = Math.max(maxDiff, Math.abs(p.x - q.x), Math.abs(p.y - q.y));
+  }
+  const lenMismatch = a.length !== b.length;
+  const match = !lenMismatch && detMismatch === 0 && maxDiff < 0.01;
+  return { maxDiff, detMismatch, compared, lenMismatch, logFrames: b.length, newFrames: a.length, match };
+}
+
+// ------------------------------------------------------------------
+// 結果表示
+// ------------------------------------------------------------------
+function renderResults() {
+  renderOverlayPanel();
+  renderExportList();
+  const e = active();
+  const box = $("stats");
+  const repro = $("reproBox");
+  repro.textContent = ""; repro.className = "";
+  if (!e || !e.results.length) {
+    box.innerHTML = '<div class="empty" style="grid-column:1/-1">解析結果はまだありません</div>';
+    drawPlots();
+    updateOverlayPreview();
+    return;
+  }
+  const sm = summarize(e);
+  const stat = (k, v, unit) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}${unit ? ` <small>${unit}</small>` : ""}</div></div>`;
+  box.innerHTML =
+    stat("検出フレーム", `${sm.detected}/${sm.frames}`) +
+    stat("最大変位 |d|", fmt(sm.max_d_um, 3), "µm") +
+    stat("最大力 |F|", fmt(sm.max_F_uN, 3), "µN") +
+    stat("平均スコア", fmt(sm.mean_score, 3)) +
+    stat("低スコア", sm.low_score_frames, "frames") +
+    stat("k", Number.isFinite(sm.k_N_per_m) ? sm.k_N_per_m.toPrecision(4) : "–", "N/m");
+  if (e.stale) {
+    repro.textContent = "ROI・FPS・探索範囲・明るさが解析時から変更されています。結果を更新するには再解析してください。";
+    repro.className = "warn";
+  } else if (e.repro) {
+    const r = e.repro;
+    if (r.match) {
+      repro.textContent = `ログの結果を再現しました（${r.compared} フレームで最大差 ${r.maxDiff.toFixed(4)} px）。`;
+      repro.className = "ok";
+    } else {
+      repro.textContent = `ログとの差: 最大 ${r.maxDiff.toFixed(3)} px、検出有無の不一致 ${r.detMismatch} フレーム` +
+        (r.lenMismatch ? `、フレーム数 ${r.logFrames} → ${r.newFrames}` : "") +
+        "。ブラウザや動画デコーダが違うと、わずかな差が出ることがあります。";
+      repro.className = "warn";
+    }
+  } else if (!e.file && e.logResults) {
+    repro.textContent = "ログに記録された結果を表示しています。";
+  }
+  drawPlots();
+  updateOverlayPreview();
+}
+function updateOverlayPreview() {
+  const e = active();
+  const pv = $("overlayPreview");
+  if (e && e.overlayUrl) {
+    if (pv.src !== e.overlayUrl) pv.src = e.overlayUrl;
+    pv.style.display = "block";
+    $("overlayDetails").style.display = "";
+  } else {
+    pv.removeAttribute("src");
+    $("overlayDetails").style.display = "none";
+  }
+  updateButtons();
+}
+
+// ------------------------------------------------------------------
+// グラフ（依存ライブラリなしの簡易プロッタ）
+// ------------------------------------------------------------------
+const SERIES_COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
+function niceTicks(min, max, count) {
+  if (!(max > min)) { max = min + 1; min = min - 1; }
+  const span = max - min;
+  const step0 = span / Math.max(1, count);
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const err = step0 / mag;
+  const step = (err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1) * mag;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step * 0.5; v += step) ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return { lo, hi, step, ticks };
+}
+function tickLabel(v, step) {
+  const d = Math.max(0, -Math.floor(Math.log10(step)) + (step / Math.pow(10, Math.floor(Math.log10(step))) === 2.5 ? 1 : 0));
+  return v.toFixed(Math.min(6, d));
+}
+function setupCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function plot(c, opt) {
+  const { ctx, w, h } = setupCanvas(c);
+  const text = cssVar("--muted"), grid = cssVar("--grid");
+  ctx.font = "11px sans-serif";
+  // 多数の動画を重ねても落ちないよう、スプレッド演算子を使わずに範囲を求める
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity, count = 0;
+  for (const s of opt.series) {
+    for (let i = 0; i < s.xs.length; i++) {
+      const x = s.xs[i], y = s.ys[i];
+      if (x == null || y == null || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (x < xmin) xmin = x; if (x > xmax) xmax = x;
+      if (y < ymin) ymin = y; if (y > ymax) ymax = y;
+      count++;
+    }
+  }
+  if (!count) {
+    ctx.fillStyle = text; ctx.textAlign = "center";
+    ctx.fillText(opt.empty || "データなし", w / 2, h / 2);
+    c._map = null;
+    return;
+  }
+  if (opt.yZero) { ymin = Math.min(0, ymin); }
+
+  // 凡例のレイアウト（折り返し）
+  const legend = opt.legendItems || (opt.series.length > 1 ? opt.series.map(s => ({ name: s.name, color: s.color, dash: s.dash })) : []);
+  const legendRows = [];
+  if (legend.length) {
+    let row = [], lx = 54;
+    for (const it of legend) {
+      const name = it.name.length > 24 ? it.name.slice(0, 23) + "…" : it.name;
+      const wItem = 22 + ctx.measureText(name).width + 14;
+      if (row.length && lx + wItem > w - 8) { legendRows.push(row); row = []; lx = 54; }
+      row.push({ ...it, name, x: lx });
+      lx += wItem;
+    }
+    if (row.length) legendRows.push(row);
+    if (legendRows.length > 4) { legendRows.length = 4; legendRows[3].push({ name: "…", color: "transparent", x: w - 20 }); }
+  }
+  const pad = { l: 54, r: 12, t: legendRows.length ? 8 + legendRows.length * 15 : 10, b: 34 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  if (opt.equal) {
+    const cx = (xmin + xmax) / 2, cy = (ymin + ymax) / 2;
+    let sx = Math.max(xmax - xmin, 1e-9), sy = Math.max(ymax - ymin, 1e-9);
+    const unit = Math.max(sx / pw, sy / ph) * 1.1;
+    xmin = cx - unit * pw / 2; xmax = cx + unit * pw / 2;
+    ymin = cy - unit * ph / 2; ymax = cy + unit * ph / 2;
+  }
+  const xt = niceTicks(xmin, xmax, Math.max(2, Math.floor(pw / 80)));
+  const yt = niceTicks(ymin, ymax, Math.max(2, Math.floor(ph / 45)));
+  if (!opt.equal) { xmin = opt.xFit ? xmin : xt.lo; xmax = opt.xFit ? xmax : xt.hi; }
+  ymin = opt.equal ? ymin : yt.lo; ymax = opt.equal ? ymax : yt.hi;
+  if (!(xmax > xmin)) xmax = xmin + 1;
+  if (!(ymax > ymin)) ymax = ymin + 1;
+  const X = v => pad.l + (v - xmin) / (xmax - xmin) * pw;
+  const Y = v => pad.t + ph - (v - ymin) / (ymax - ymin) * ph;
+
+  ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.fillStyle = text;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (const v of yt.ticks) {
+    if (v < ymin - 1e-12 || v > ymax + 1e-12) continue;
+    const y = Math.round(Y(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+    ctx.fillText(tickLabel(v, yt.step), pad.l - 6, y);
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (const v of xt.ticks) {
+    if (v < xmin - 1e-12 || v > xmax + 1e-12) continue;
+    const x = Math.round(X(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+    ctx.fillText(tickLabel(v, xt.step), x, pad.t + ph + 4);
+  }
+  ctx.fillText(opt.xLabel, pad.l + pw / 2, h - 14);
+  ctx.save();
+  ctx.translate(12, pad.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = "middle"; ctx.fillText(opt.yLabel, 0, 0);
+  ctx.restore();
+
+  // 現在フレームのマーカー
+  if (opt.markerX != null && opt.markerX >= xmin && opt.markerX <= xmax) {
+    ctx.save();
+    ctx.strokeStyle = text; ctx.setLineDash([4, 4]);
+    const x = Math.round(X(opt.markerX)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(pad.l, pad.t, pw, ph); ctx.clip();
+  for (const s of opt.series) {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width || 1.6; ctx.lineJoin = "round";
+    ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+    ctx.setLineDash(s.dash ? [6, 4] : []);
+    ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < s.xs.length; i++) {
+      const x = s.xs[i], y = s.ys[i];
+      if (x == null || y == null || !Number.isFinite(y)) { pen = false; continue; }
+      if (!pen) { ctx.moveTo(X(x), Y(y)); pen = true; } else ctx.lineTo(X(x), Y(y));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    if (s.lowIdx) {
+      ctx.save(); ctx.fillStyle = cssVar("--warn");
+      for (const i of s.lowIdx) if (s.ys[i] != null) { ctx.beginPath(); ctx.arc(X(s.xs[i]), Y(s.ys[i]), 2.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
+    if (s.highlight != null && s.ys[s.highlight] != null && s.xs[s.highlight] != null) {
+      ctx.beginPath(); ctx.arc(X(s.xs[s.highlight]), Y(s.ys[s.highlight]), 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  if (legendRows.length) {
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    legendRows.forEach((row, ri) => {
+      const y = 9 + ri * 15;
+      for (const it of row) {
+        ctx.strokeStyle = it.color; ctx.lineWidth = 2.5;
+        ctx.setLineDash(it.dash ? [4, 3] : []);
+        ctx.beginPath(); ctx.moveTo(it.x, y); ctx.lineTo(it.x + 16, y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = text;
+        ctx.fillText(it.name, it.x + 22, y);
+      }
+    });
+  }
+  c._map = { pad, pw, xmin, xmax };
+}
+const METRIC_DEF = {
+  d: { label: "|d| (µm)", comps: [["|d|", "du"]] },
+  dxdy: { label: "変位 (µm)", comps: [["dx", "dxu"], ["dy", "dyu"]] },
+  F: { label: "|F| (µN)", comps: [["|F|", "F"]] },
+  FxFy: { label: "力 (µN)", comps: [["Fx", "Fx"], ["Fy", "Fy"]] },
+  score: { label: "score", comps: [["score", "score"]] }
+};
+// 単独表示：成分ごとに色を変える
+function singleSeries(e, metric, colors) {
+  const rows = derive(e);
+  const xs = rows.map(r => r.t);
+  const low = rows.map((r, i) => (r.low ? i : -1)).filter(i => i >= 0);
+  return METRIC_DEF[metric].comps.map(([name, key], j) => ({
+    name, xs, ys: rows.map(r => r[key]), color: colors[j],
+    lowIdx: metric === "d" || metric === "F" ? low : null, highlight: state.viewFrame
+  }));
+}
+// 重ね描画：色はグループ（または動画）、成分は線種で区別
+function overlayColor(e, idx) {
+  return state.colorBy === "group" ? groupColor(e) : VIDEO_PALETTE[idx % VIDEO_PALETTE.length];
+}
+function overlayTargets() {
+  return state.videos.filter(v => v.results.length && v.visible);
+}
+function drawPlots() {
+  const e = active();
+  const metric = $("metricSelect").value;
+  const overlay = state.plotMode === "overlay";
+  const colors = SERIES_COLORS.map(cssVar);
+  const def = METRIC_DEF[metric];
+  let series = [], xy = [], legendItems = null, xyLegend = null;
+
+  if (overlay) {
+    const vids = overlayTargets();
+    const allVids = state.videos.filter(v => v.results.length);
+    const isActive = v => e && v.id === e.id;
+    // 選択中の動画を最後に描いて前面に出す
+    const ordered = vids.filter(v => !isActive(v)).concat(vids.filter(isActive));
+    for (const v of ordered) {
+      const rows = derive(v);
+      const xs = rows.map(r => r.t);
+      const color = overlayColor(v, allVids.indexOf(v));
+      const act = isActive(v);
+      def.comps.forEach(([cname, key], j) => {
+        series.push({
+          name: `${v.name} ${cname}`, xs, ys: rows.map(r => r[key]), color, dash: j === 1,
+          width: act ? 2.6 : 1.3, alpha: act || vids.length < 4 ? 1 : 0.8,
+          highlight: act ? state.viewFrame : null
+        });
+      });
+      xy.push({ name: v.name, xs: rows.map(r => r.dxu), ys: rows.map(r => r.dyu), color, width: act ? 2.4 : 1.2, alpha: act || vids.length < 4 ? 1 : 0.8, highlight: act ? state.viewFrame : null });
+    }
+    if (state.colorBy === "group") {
+      const seen = new Map();
+      for (const v of vids) {
+        const key = groupOf(v) ? v.groupId : "none";
+        if (!seen.has(key)) seen.set(key, { name: groupName(v) || "未分類", color: groupColor(v) });
+      }
+      legendItems = [...seen.values()];
+    } else {
+      legendItems = vids.map(v => ({ name: baseName(v.name), color: overlayColor(v, allVids.indexOf(v)) }));
+    }
+    if (def.comps.length === 2) legendItems = legendItems.concat([{ name: `${def.comps[0][0]}: 実線`, color: cssVar("--muted") }, { name: `${def.comps[1][0]}: 破線`, color: cssVar("--muted"), dash: true }]);
+    xyLegend = legendItems.filter(it => !/実線|破線/.test(it.name));
+  } else if (e && e.results.length) {
+    series = singleSeries(e, metric, colors);
+    const rows = derive(e);
+    xy = [{ name: "trajectory", xs: rows.map(r => r.dxu), ys: rows.map(r => r.dyu), color: colors[0], highlight: state.viewFrame }];
+  }
+  const marker = e && e.results.length && (!overlay || e.visible) ? state.viewFrame / e.settings.fps : null;
+  plot($("timePlot"), {
+    series, xLabel: "時間 t (s)", yLabel: def.label, markerX: marker, xFit: true,
+    yZero: metric !== "score", legendItems,
+    empty: overlay ? "表示するデータがありません（下のリストでチェックしてください）" : "解析結果がありません"
+  });
+  plot($("xyPlot"), {
+    series: xy, xLabel: "dx (µm)", yLabel: "dy (µm, 下向き正)", equal: true,
+    legendItems: xyLegend || [], empty: overlay ? "表示するデータがありません" : "解析結果がありません"
+  });
+}
+
+// 重ね描画の表示/非表示リスト
+function renderOverlayPanel() {
+  const overlay = state.plotMode === "overlay";
+  $("overlayPanel").style.display = overlay ? "" : "none";
+  $("colorByBox").style.display = overlay ? "" : "none";
+  for (const b of $("plotModeSeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === state.plotMode);
+  for (const b of $("colorBySeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.by === state.colorBy);
+  if (!overlay) return;
+  const box = $("visList");
+  box.innerHTML = "";
+  const allVids = state.videos.filter(v => v.results.length);
+  const buckets = state.groups.map(g => ({ key: g.id, name: g.name, color: g.color, vids: state.videos.filter(v => v.groupId === g.id) }));
+  buckets.push({ key: "none", name: "未分類", color: NO_GROUP_COLOR, vids: state.videos.filter(v => !groupOf(v)) });
+  for (const b of buckets) {
+    if (!b.vids.length) continue;
+    const withData = b.vids.filter(v => v.results.length);
+    const div = document.createElement("div");
+    div.className = "vis-group";
+    const head = document.createElement("label");
+    head.innerHTML = `<input type="checkbox"><span class="dot"></span><span class="n"></span><span class="badge">${withData.length}</span>`;
+    const hc = head.querySelector("input");
+    const shown = withData.filter(v => v.visible).length;
+    hc.checked = withData.length > 0 && shown === withData.length;
+    hc.indeterminate = shown > 0 && shown < withData.length;
+    hc.disabled = !withData.length;
+    hc.onchange = () => { for (const v of withData) v.visible = hc.checked; renderOverlayPanel(); drawPlots(); };
+    const hd = head.querySelector(".dot");
+    if (b.key === "none") hd.classList.add("none"); else hd.style.background = b.color;
+    head.querySelector(".n").textContent = b.name;
+    div.appendChild(head);
+    const items = document.createElement("div");
+    items.className = "items";
+    for (const v of b.vids) {
+      const lab = document.createElement("label");
+      if (!v.results.length) {
+        lab.innerHTML = `<input type="checkbox" disabled><span class="n na"></span>`;
+        lab.querySelector(".n").textContent = `${v.name}（未解析）`;
+      } else {
+        lab.innerHTML = `<input type="checkbox"><span class="swatch"></span><span class="n"></span>`;
+        const c = lab.querySelector("input");
+        c.checked = v.visible;
+        c.onchange = () => { v.visible = c.checked; renderOverlayPanel(); drawPlots(); };
+        lab.querySelector(".swatch").style.background = overlayColor(v, allVids.indexOf(v));
+        const n = lab.querySelector(".n");
+        n.textContent = v.name;
+        if (v.id === state.activeId) n.style.fontWeight = "600";
+        if (v.stale) n.title = "条件変更後、未再解析";
+      }
+      items.appendChild(lab);
+    }
+    div.appendChild(items);
+    box.appendChild(div);
+  }
+  if (!box.children.length) box.innerHTML = '<div class="empty">動画がありません</div>';
+}
+for (const b of $("plotModeSeg").querySelectorAll("button")) b.onclick = () => { state.plotMode = b.dataset.mode; renderOverlayPanel(); drawPlots(); };
+for (const b of $("colorBySeg").querySelectorAll("button")) b.onclick = () => { state.colorBy = b.dataset.by; renderOverlayPanel(); drawPlots(); };
+$("showAllBtn").onclick = () => { for (const v of state.videos) v.visible = true; renderOverlayPanel(); drawPlots(); };
+$("hideAllBtn").onclick = () => { for (const v of state.videos) v.visible = false; renderOverlayPanel(); drawPlots(); };
+$("metricSelect").onchange = drawPlots;
+$("timePlot").addEventListener("click", ev => {
+  const c = $("timePlot");
+  const e = active();
+  if (!c._map || !e || !e.results.length) return;
+  const r = c.getBoundingClientRect();
+  const px = ev.clientX - r.left;
+  const m = c._map;
+  const t = m.xmin + (px - m.pad.l) / m.pw * (m.xmax - m.xmin);
+  gotoFrame(t * e.settings.fps);
+});
+let resizeTimer = null;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawPlots, 100); });
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawPlots);
+
+// ------------------------------------------------------------------
+// テーマ（自動 / ライト / ダーク）
+// ------------------------------------------------------------------
+function applyTheme(mode) {
+  const root = document.documentElement;
+  if (mode === "light" || mode === "dark") root.setAttribute("data-theme", mode);
+  else root.removeAttribute("data-theme");
+  for (const b of $("themeSeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.theme === (mode || "auto"));
+  try { localStorage.setItem("oitem-theme", mode || "auto"); } catch {}
+  drawPlots();
+}
+for (const b of $("themeSeg").querySelectorAll("button")) b.onclick = () => applyTheme(b.dataset.theme);
+
+// ------------------------------------------------------------------
+// グループ色の選択ポップアップ
+// ------------------------------------------------------------------
+const COLOR_CHOICES = [
+  "#2563eb", "#0891b2", "#0d9488", "#16a34a", "#65a30d", "#ca8a04",
+  "#d97706", "#ea580c", "#e4572e", "#dc2626", "#db2777", "#c026d3",
+  "#9333ea", "#7c3aed", "#4f46e5", "#475569", "#78716c", "#111827"
+];
+let colorTarget = null;
+function setGroupColor(g, c) {
+  g.color = c.toLowerCase();
+  renderVideoList(); renderOverlayPanel(); renderExportList(); drawPlots();
+  const btns = $("groupList").querySelectorAll(".swatch-btn");
+  const idx = state.groups.indexOf(g);
+  if (btns[idx]) btns[idx].style.background = g.color;
+  syncColorPop();
+}
+function syncColorPop() {
+  if (!colorTarget) return;
+  const c = colorTarget.color.toLowerCase();
+  for (const b of $("colorGrid").children) b.classList.toggle("sel", b.dataset.c === c);
+  $("colorCustom").value = c;
+  $("colorHex").value = c;
+}
+function openColorPop(anchor, g) {
+  const pop = $("colorPop");
+  if (colorTarget === g && pop.style.display === "block") { closeColorPop(); return; }
+  colorTarget = g;
+  pop.style.display = "block";
+  const r = anchor.getBoundingClientRect();
+  const left = Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8);
+  pop.style.left = Math.max(8, left) + "px";
+  pop.style.top = (window.scrollY + r.bottom + 6) + "px";
+  syncColorPop();
+}
+function closeColorPop() { $("colorPop").style.display = "none"; colorTarget = null; }
+(function buildColorGrid() {
+  const grid = $("colorGrid");
+  for (const c of COLOR_CHOICES) {
+    const b = document.createElement("button");
+    b.style.background = c;
+    b.dataset.c = c;
+    b.title = c;
+    b.onclick = () => { if (colorTarget) setGroupColor(colorTarget, c); };
+    grid.appendChild(b);
+  }
+})();
+$("colorCustom").addEventListener("input", () => { if (colorTarget) setGroupColor(colorTarget, $("colorCustom").value); });
+$("colorHex").addEventListener("change", () => {
+  let v = $("colorHex").value.trim();
+  if (!v.startsWith("#")) v = "#" + v;
+  if (/^#[0-9a-fA-F]{6}$/.test(v) && colorTarget) setGroupColor(colorTarget, v); else syncColorPop();
+});
+document.addEventListener("mousedown", ev => {
+  const pop = $("colorPop");
+  if (pop.style.display === "block" && !pop.contains(ev.target) && !ev.target.classList.contains("swatch-btn")) closeColorPop();
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeColorPop(); });
+
+// ------------------------------------------------------------------
+// 出力：CSV
+// ------------------------------------------------------------------
+const CSV_COLS = ["frame", "time_s", "x_px", "y_px", "dx_px", "dy_px", "d_px", "dx_um", "dy_um", "d_um", "Fx_uN", "Fy_uN", "F_uN", "score", "low_score", "area_px2", "fitted_radius_px"];
+function csvRow(r) {
+  return [r.frame, fmt(r.t, 5), fmt(r.x, 3), fmt(r.y, 3), fmt(r.dx, 3), fmt(r.dy, 3), fmt(r.d, 3),
+    fmt(r.dxu, 4), fmt(r.dyu, 4), fmt(r.du, 4), fmt(r.Fx, 4), fmt(r.Fy, 4), fmt(r.F, 4),
+    fmt(r.score, 4), r.score == null ? "" : r.low ? 1 : 0, fmt(r.area, 1), fmt(r.radius, 3)];
+}
+function roiText(r) {
+  if (!r) return "none";
+  return r.type === "rect" ? `rect x=${r.x} y=${r.y} w=${r.w} h=${r.h}` : `circle cx=${r.cx} cy=${r.cy} r=${r.r}`;
+}
+function csvMeta(e) {
+  const s = e.settings;
+  const k = computeK(s);
+  const lines = [
+    `# video_file: ${e.name}`,
+    `# group: ${groupName(e) || "(none)"}`,
+    `# app: OITem Pillar Tracker v${APP_VERSION}`,
+    `# analyzed_at: ${e.analyzedAt || ""}`,
+    `# fps: ${s.fps} (${s.fpsSource})`,
+    `# roi: ${roiText(s.roi)}`,
+    `# search_margin_px: ${s.margin}`,
+    `# target_polarity: ${s.polarity} (OTSU, ${s.polarity === "bright" ? "THRESH_BINARY" : "THRESH_BINARY_INV"})`,
+    `# center_method: minEnclosingCircle / template: TM_CCOEFF_NORMED (grayscale, first frame)`,
+    `# um_per_px: ${s.umPerPx}${s.umPerPxText ? ` (${s.umPerPxText})` : ""}`,
+    `# k_N_per_m: ${Number.isFinite(k) ? k.toPrecision(6) : ""} (${s.kMode}${s.kMode === "geometry" ? `: E=${s.E_MPa}MPa D=${s.D_um}um L=${s.L_um}um` : ""})`,
+    `# low_score_threshold: ${s.minScore}`,
+    `# reference: first detected frame; y axis points down`
+  ];
+  if (e.stale) lines.push("# WARNING: settings changed after analysis (re-analysis recommended)");
+  return lines;
+}
+function csvEscape(v) {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function saveBom(text) { return new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" }); }
+$("csvBtn").onclick = () => {
+  const e = active();
+  if (!e || !e.results.length) return;
+  const lines = [...csvMeta(e), CSV_COLS.join(","), ...derive(e).map(r => csvRow(r).map(csvEscape).join(","))];
+  downloadBlob(saveBom(lines.join("\n")), `${baseName(e.name)}_tracking_${timestamp()}.csv`);
+};
+function exportTargets() { return state.videos.filter(v => v.results.length && v.exportSel); }
+// ------------------------------------------------------------------
+// 一括出力：選択リスト
+// ------------------------------------------------------------------
+function renderExportList() {
+  const box = $("exportList");
+  box.innerHTML = "";
+  const vids = state.videos.filter(v => v.results.length);
+  if (!vids.length) box.innerHTML = '<div class="empty" style="grid-column:1/-1">解析済みの動画がありません</div>';
+  for (const v of vids) {
+    const lab = document.createElement("label");
+    lab.innerHTML = `<input type="checkbox"><span class="dot"></span><span class="n"></span>`;
+    const c = lab.querySelector("input");
+    c.checked = v.exportSel;
+    c.onchange = () => { v.exportSel = c.checked; updateExportButtons(); };
+    const d = lab.querySelector(".dot");
+    if (groupOf(v)) d.style.background = groupColor(v); else d.classList.add("none");
+    d.title = groupName(v) || "未分類";
+    lab.querySelector(".n").textContent = v.name;
+    const b = document.createElement("span");
+    b.className = "badge" + (v.overlayBlob ? " ok" : "");
+    b.textContent = v.overlayBlob ? "動画あり" : "動画なし";
+    b.title = v.overlayBlob ? "オーバーレイ動画を保持しています" : "オーバーレイ動画はありません（記録オフ、またはログから読み込んだ結果）";
+    lab.appendChild(b);
+    if (v.stale) { const w = document.createElement("span"); w.className = "badge warn"; w.textContent = "要再解析"; lab.appendChild(w); }
+    box.appendChild(lab);
+  }
+  const gs = $("expGroupSel");
+  gs.innerHTML = "";
+  gs.add(new Option("グループで選択…", ""));
+  for (const g of state.groups) gs.add(new Option(g.name, String(g.id)));
+  gs.add(new Option("未分類", "none"));
+  updateExportButtons();
+}
+function updateExportButtons() {
+  const sel = exportTargets();
+  const all = state.videos.filter(v => v.results.length);
+  const withVideo = sel.filter(v => v.overlayBlob);
+  const busy = state.running || state.busy;
+  $("expCount").textContent = all.length ? `${sel.length} / ${all.length} 本を選択（オーバーレイ動画あり ${withVideo.length} 本）` : "";
+  $("xlsxBtn").disabled = busy || !sel.length;
+  $("zipOverlayBtn").disabled = busy || !withVideo.length;
+}
+$("expAllBtn").onclick = () => { for (const v of state.videos) v.exportSel = true; renderExportList(); };
+$("expNoneBtn").onclick = () => { for (const v of state.videos) v.exportSel = false; renderExportList(); };
+$("expGroupSel").onchange = () => {
+  const val = $("expGroupSel").value;
+  if (!val) return;
+  for (const v of state.videos) v.exportSel = val === "none" ? !groupOf(v) : v.groupId === Number(val);
+  renderExportList();
+};
+
+// ------------------------------------------------------------------
+// ZIP 作成（無圧縮。動画は既に圧縮済みなので十分）
+// ------------------------------------------------------------------
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function makeZip(files) {
+  // files: [{ name, data: Uint8Array | Blob | string }]
+  const enc = new TextEncoder();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    let data = f.data;
+    if (typeof data === "string") data = enc.encode(data);
+    else if (data instanceof Blob) data = new Uint8Array(await data.arrayBuffer());
+    const name = enc.encode(f.name);
+    const crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((a, b) => a + b.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
+}
+function uniqueName(name, used) {
+  let n = name, i = 2;
+  while (used.has(n.toLowerCase())) { const m = name.match(/^(.*?)(\.[^.]*)?$/); n = `${m[1]}_${i++}${m[2] || ""}`; }
+  used.add(n.toLowerCase());
+  return n;
+}
+$("zipOverlayBtn").onclick = async () => {
+  const vids = exportTargets().filter(v => v.overlayBlob);
+  if (!vids.length) return;
+  const skipped = exportTargets().length - vids.length;
+  setStatus("ZIP を作成中...");
+  const used = new Set();
+  const files = vids.map(v => ({ name: uniqueName(`${baseName(v.name)}_overlay.${v.overlayExt}`, used), data: v.overlayBlob }));
+  try {
+    const zip = await makeZip(files);
+    downloadBlob(zip, `overlay_videos_${timestamp()}.zip`);
+    setStatus(`オーバーレイ動画 ${vids.length} 本を ZIP で保存しました。` + (skipped ? `（動画のない ${skipped} 本は除外）` : ""));
+  } catch (err) {
+    setStatus("ZIP の作成に失敗しました: " + err.message, true);
+  }
+};
+
+// ------------------------------------------------------------------
+// Excel (.xlsx) 作成（外部ライブラリなし）
+// ------------------------------------------------------------------
+function xmlEsc(s) {
+  return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function colName(i) {
+  let s = "";
+  i++;
+  while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+  return s;
+}
+function cellXml(ref, v, bold) {
+  const st = bold ? ' s="1"' : "";
+  if (v == null || v === "") return "";
+  if (typeof v === "number") return Number.isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : "";
+  return `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+// grid: 行の配列（各行は値の配列。null は空セル）。boldRows: 太字にする行番号の Set
+function sheetXml(grid, opts = {}) {
+  const rows = grid.map((row, r) => {
+    const cells = row.map((v, c) => cellXml(colName(c) + (r + 1), v, (opts.boldRows && opts.boldRows.has(r)) || (opts.boldCols && opts.boldCols.has(c)))).join("");
+    return cells ? `<row r="${r + 1}">${cells}</row>` : "";
+  }).join("");
+  const pane = opts.freezeRow ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${opts.freezeRow}" topLeftCell="A${opts.freezeRow + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : "";
+  const cols = opts.widths ? `<cols>${opts.widths.map((w, i) => w ? `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>` : "").join("")}</cols>` : "";
+  const drawing = opts.drawing ? '<drawing r:id="rId1"/>' : "";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pane}${cols}<sheetData>${rows}</sheetData>${drawing}</worksheet>`;
+}
+
+// ---- Excel ネイティブグラフ（散布図・直線） ----
+const NS_C = 'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+function richText(text, sz, bold, rotate) {
+  const b = bold ? 1 : 0;
+  return `<c:tx><c:rich><a:bodyPr${rotate ? ' rot="-5400000" vert="horz"' : ""}/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${sz}" b="${b}"/></a:pPr><a:r><a:rPr lang="ja-JP" sz="${sz}" b="${b}"/><a:t>${xmlEsc(text)}</a:t></a:r></a:p></c:rich></c:tx>`;
+}
+function numRefXml(ref, vals) {
+  const pts = vals.map((v, i) => (v == null || !Number.isFinite(v) ? "" : `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`)).join("");
+  return `<c:numRef><c:f>${xmlEsc(ref)}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${vals.length}"/>${pts}</c:numCache></c:numRef>`;
+}
+function axisXml(id, cross, pos, title, range, grid) {
+  const mx = range && range.max != null ? `<c:max val="${range.max}"/>` : "";
+  const mn = range && range.min != null ? `<c:min val="${range.min}"/>` : "";
+  const gl = grid ? '<c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="E5E7EB"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>' : "";
+  return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/>${mx}${mn}</c:scaling><c:delete val="0"/><c:axPos val="${pos}"/>${gl}` +
+    `<c:title>${richText(title, 1000, false, pos === "l")}<c:overlay val="0"/></c:title>` +
+    `<c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="out"/><c:minorTickMark val="none"/><c:tickLblPos val="low"/>` +
+    `<c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="9CA3AF"/></a:solidFill></a:ln></c:spPr>` +
+    `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="ja-JP"/></a:p></c:txPr>` +
+    `<c:crossAx val="${cross}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/></c:valAx>`;
+}
+// o: { title, xTitle, yTitle, xRange, yRange, legend: "t"|"r"|null, series: [{ name, color, dash, width, xRef, yRef, xs, ys }] }
+function chartXml(o) {
+  const ser = o.series.map((s, i) =>
+    `<c:ser><c:idx val="${i}"/><c:order val="${i}"/><c:tx><c:v>${xmlEsc(s.name)}</c:v></c:tx>` +
+    `<c:spPr><a:ln w="${Math.round((s.width || 1.5) * 12700)}" cap="rnd"><a:solidFill><a:srgbClr val="${s.color.replace("#", "").toUpperCase()}"/></a:solidFill>${s.dash ? '<a:prstDash val="dash"/>' : ""}<a:round/></a:ln></c:spPr>` +
+    `<c:marker><c:symbol val="none"/></c:marker><c:xVal>${numRefXml(s.xRef, s.xs)}</c:xVal><c:yVal>${numRefXml(s.yRef, s.ys)}</c:yVal><c:smooth val="0"/></c:ser>`).join("");
+  const legend = o.legend ? `<c:legend><c:legendPos val="${o.legend}"/><c:overlay val="0"/><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="ja-JP"/></a:p></c:txPr></c:legend>` : "";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<c:chartSpace ${NS_C}><c:roundedCorners val="0"/><c:chart>` +
+    `<c:title>${richText(o.title, 1200, true)}<c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>` +
+    `<c:plotArea><c:layout/><c:scatterChart><c:scatterStyle val="lineMarker"/><c:varyColors val="0"/>${ser}<c:axId val="1001"/><c:axId val="1002"/></c:scatterChart>` +
+    axisXml(1001, 1002, "b", o.xTitle, o.xRange, false) + axisXml(1002, 1001, "l", o.yTitle, o.yRange, true) +
+    `</c:plotArea>${legend}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>` +
+    `<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln w="6350"><a:solidFill><a:srgbClr val="D1D5DB"/></a:solidFill></a:ln></c:spPr></c:chartSpace>`;
+}
+function drawingXml(anchors) {
+  const items = anchors.map((a, i) =>
+    `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${a.c1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.r1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
+    `<xdr:to><xdr:col>${a.c2}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.r2}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>` +
+    `<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${i + 2}" name="Chart ${i + 1}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>` +
+    `<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="rId${i + 1}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart">${items}</xdr:wsDr>`;
+}
+function niceCeil(v) {
+  if (!(v > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v - 1e-12) return m * p;
+  return 10 * p;
+}
+function sheetRef(sheet, col, n) {
+  return `'${sheet.replace(/'/g, "''")}'!$${col}$2:$${col}$${n + 1}`;
+}
+
+async function makeXlsx(sheets) {
+  // sheets: [{ name, grid, opts, charts: [{ anchor:{c1,r1,c2,r2}, xml }] }]
+  const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const files = [];
+  const overrides = [];
+  let drawingNo = 0, chartNo = 0;
+  sheets.forEach((s, i) => {
+    const hasCharts = s.charts && s.charts.length;
+    files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s.grid, { ...s.opts, drawing: hasCharts }) });
+    overrides.push([`/xl/worksheets/sheet${i + 1}.xml`, "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"]);
+    if (!hasCharts) return;
+    const d = ++drawingNo;
+    files.push({ name: `xl/worksheets/_rels/sheet${i + 1}.xml.rels`, data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/drawing" Target="../drawings/drawing${d}.xml"/></Relationships>` });
+    files.push({ name: `xl/drawings/drawing${d}.xml`, data: drawingXml(s.charts.map(c => c.anchor)) });
+    overrides.push([`/xl/drawings/drawing${d}.xml`, "application/vnd.openxmlformats-officedocument.drawing+xml"]);
+    const rels = [];
+    s.charts.forEach((c, j) => {
+      const k = ++chartNo;
+      rels.push(`<Relationship Id="rId${j + 1}" Type="${R}/chart" Target="../charts/chart${k}.xml"/>`);
+      files.push({ name: `xl/charts/chart${k}.xml`, data: c.xml });
+      overrides.push([`/xl/charts/chart${k}.xml`, "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"]);
+    });
+    files.push({ name: `xl/drawings/_rels/drawing${d}.xml.rels`, data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join("")}</Relationships>` });
+  });
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>${overrides.map(([p, t]) => `<Override PartName="${p}" ContentType="${t}"/>`).join("")}</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`;
+  const core = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>OITem Pillar Tracker results</dc:title><dc:creator>OITem Pillar Tracker v${APP_VERSION}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, "Z")}</dcterms:created></cp:coreProperties>`;
+  const wb = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${R}"><sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="${R}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="${R}/styles" Target="styles.xml"/></Relationships>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return makeZip([
+    { name: "[Content_Types].xml", data: ct },
+    { name: "_rels/.rels", data: rels },
+    { name: "docProps/core.xml", data: core },
+    { name: "xl/workbook.xml", data: wb },
+    { name: "xl/_rels/workbook.xml.rels", data: wbRels },
+    { name: "xl/styles.xml", data: styles },
+    ...files
+  ]);
+}
+function sheetNameFor(name, used) {
+  let base = baseName(name).replace(/[\[\]:*?\/\\]/g, "_").replace(/^'+|'+$/g, "").slice(0, 31) || "Sheet";
+  let n = base, i = 2;
+  while (used.has(n.toLowerCase())) { const suf = `_${i++}`; n = base.slice(0, 31 - suf.length) + suf; }
+  used.add(n.toLowerCase());
+  return n;
+}
+const rnd = (v, d) => (v == null || !Number.isFinite(v) ? null : Number(v.toFixed(d)));
+function conditionPairs(e) {
+  const s = e.settings;
+  const k = computeK(s);
+  const pairs = [
+    ["video_file", e.name],
+    ["group", groupName(e) || "(未分類)"],
+    ["fps", s.fps],
+    ["roi", roiText(s.roi)],
+    ["search_margin_px", s.margin],
+    ["target_polarity", s.polarity],
+    ["um_per_px", s.umPerPx],
+    ["um_per_px_input", s.umPerPxText || String(s.umPerPx)],
+    ["k_N_per_m", Number.isFinite(k) ? rnd(k, 6) : null],
+    ["k_mode", s.kMode],
+  ];
+  if (s.kMode === "geometry") pairs.push(["E_MPa", s.E_MPa], ["D_um", s.D_um], ["L_um", s.L_um]);
+  pairs.push(
+    ["low_score_threshold", s.minScore],
+    ["analyzed_at", e.analyzedAt || ""],
+    ["app", `OITem Pillar Tracker v${APP_VERSION}`],
+    ["note", "基準 = 最初に検出したフレーム。y は画像下向きが正"]
+  );
+  if (e.stale) pairs.push(["warning", "解析後に条件が変更されています（再解析推奨）"]);
+  return pairs;
+}
+function videoSheetGrid(e) {
+  const rows = derive(e);
+  const grid = [CSV_COLS.slice()];
+  for (const r of rows) {
+    grid.push([r.frame, rnd(r.t, 5), rnd(r.x, 3), rnd(r.y, 3), rnd(r.dx, 3), rnd(r.dy, 3), rnd(r.d, 3),
+      rnd(r.dxu, 4), rnd(r.dyu, 4), rnd(r.du, 4), rnd(r.Fx, 4), rnd(r.Fy, 4), rnd(r.F, 4),
+      rnd(r.score, 4), r.score == null ? null : r.low ? 1 : 0, rnd(r.area, 1), rnd(r.radius, 3)]);
+  }
+  // S〜T 列（index 18, 19）に解析条件
+  const META_COL = 18;
+  const pairs = [["項目", "値"], ...conditionPairs(e)];
+  pairs.forEach(([k, v], i) => {
+    if (!grid[i]) grid[i] = [];
+    grid[i][META_COL] = k;
+    grid[i][META_COL + 1] = v;
+  });
+  return grid;
+}
+function summaryGrid(vids, sheetNames) {
+  const head = ["sheet", "video_file", "group", "fps", "roi", "um_per_px", "k_N_per_m", "frames", "detected", "max_d_um", "max_F_uN", "mean_score", "low_score_frames", "analyzed_at", "stale"];
+  const grid = [head];
+  vids.forEach((v, i) => {
+    const sm = summarize(v);
+    grid.push([sheetNames[i], v.name, groupName(v) || "(未分類)", v.settings.fps, roiText(v.settings.roi), v.settings.umPerPx,
+      rnd(sm.k_N_per_m, 6), sm.frames, sm.detected, rnd(sm.max_d_um, 4), rnd(sm.max_F_uN, 4), rnd(sm.mean_score, 4),
+      sm.low_score_frames, v.analyzedAt || "", v.stale ? "yes" : "no"]);
+  });
+  return grid;
+}
+// 列: A frame, B time_s, H dx_um, I dy_um, J d_um, K Fx_uN, L Fy_uN, M F_uN, N score
+const XL_COL = { t: "B", dxu: "H", dyu: "I", du: "J", Fx: "K", Fy: "L", F: "M", score: "N" };
+const XL_BLUE = "#2563eb", XL_RED = "#e4572e";
+function xlSeriesData(v) {
+  const rows = derive(v);
+  const pick = (key, d) => rows.map(r => rnd(r[key], d));
+  return {
+    n: rows.length, t: pick("t", 5), dxu: pick("dxu", 4), dyu: pick("dyu", 4), du: pick("du", 4),
+    Fx: pick("Fx", 4), Fy: pick("Fy", 4), F: pick("F", 4), score: pick("score", 4)
+  };
+}
+function xyRange(list) {
+  let m = 0;
+  for (const d of list) for (let i = 0; i < d.n; i++) {
+    if (d.dxu[i] != null) m = Math.max(m, Math.abs(d.dxu[i]));
+    if (d.dyu[i] != null) m = Math.max(m, Math.abs(d.dyu[i]));
+  }
+  const r = niceCeil(m * 1.05 || 1);
+  return { min: -r, max: r };
+}
+function tRange(list) {
+  let m = 0;
+  for (const d of list) for (const t of d.t) if (t != null && t > m) m = t;
+  return { min: 0, max: Number(m.toFixed(5)) || 1 };
+}
+// サンプルシート用：Web の単独表示と同じ 6 種類のグラフ
+function sampleCharts(sheet, d) {
+  const ref = c => sheetRef(sheet, c, d.n);
+  const s = (name, key, color) => ({ name, color, xRef: ref(XL_COL.t), yRef: ref(XL_COL[key]), xs: d.t, ys: d[key] });
+  const tr = tRange([d]);
+  const defs = [
+    { title: "変位 |d|", yTitle: "|d| (µm)", series: [s("|d|", "du", XL_BLUE)] },
+    { title: "変位 dx, dy", yTitle: "変位 (µm)", series: [s("dx", "dxu", XL_BLUE), s("dy", "dyu", XL_RED)], legend: "t" },
+    { title: "力 |F|", yTitle: "|F| (µN)", series: [s("|F|", "F", XL_BLUE)] },
+    { title: "力 Fx, Fy", yTitle: "力 (µN)", series: [s("Fx", "Fx", XL_BLUE), s("Fy", "Fy", XL_RED)], legend: "t" },
+    { title: "マッチングスコア", yTitle: "score", series: [s("score", "score", XL_BLUE)] }
+  ].map(o => ({ ...o, xTitle: "時間 t (s)", xRange: tr }));
+  defs.push({
+    title: "軌跡 dx–dy", xTitle: "dx (µm)", yTitle: "dy (µm, 下向き正)", xRange: xyRange([d]), yRange: xyRange([d]),
+    series: [{ name: "trajectory", color: XL_BLUE, xRef: ref(XL_COL.dxu), yRef: ref(XL_COL.dyu), xs: d.dxu, ys: d.dyu }]
+  });
+  // V 列（index 21）から 2 列 × 3 段に配置
+  return defs.map((o, i) => {
+    const c1 = 21 + (i % 2) * 9, r1 = 1 + Math.floor(i / 2) * 19;
+    return { anchor: { c1, r1, c2: c1 + 9, r2: r1 + 18 }, xml: chartXml(o) };
+  });
+}
+// Overlay シート用：Web の重ね描画と同じ配色（グループ色／動画ごと）
+function overlayCharts(vids, names, datas) {
+  const allVids = state.videos.filter(v => v.results.length);
+  const color = v => overlayColor(v, allVids.indexOf(v));
+  const tr = tRange(datas);
+  const timeChart = (title, yTitle, comps) => {
+    const series = [];
+    vids.forEach((v, i) => {
+      const d = datas[i];
+      comps.forEach(([cname, key], j) => series.push({
+        name: comps.length > 1 ? `${baseName(v.name)} ${cname}` : baseName(v.name),
+        color: color(v), dash: j === 1, width: 1.25,
+        xRef: sheetRef(names[i], XL_COL.t, d.n), yRef: sheetRef(names[i], XL_COL[key], d.n), xs: d.t, ys: d[key]
+      }));
+    });
+    return { title, xTitle: "時間 t (s)", yTitle, xRange: tr, series, legend: "r" };
+  };
+  const defs = [
+    timeChart("変位 |d|（重ね描画）", "|d| (µm)", [["|d|", "du"]]),
+    timeChart("変位 dx（実線）, dy（破線）", "変位 (µm)", [["dx", "dxu"], ["dy", "dyu"]]),
+    timeChart("力 |F|（重ね描画）", "|F| (µN)", [["|F|", "F"]]),
+    timeChart("力 Fx（実線）, Fy（破線）", "力 (µN)", [["Fx", "Fx"], ["Fy", "Fy"]]),
+    {
+      title: "軌跡 dx–dy（重ね描画）", xTitle: "dx (µm)", yTitle: "dy (µm, 下向き正)", xRange: xyRange(datas), yRange: xyRange(datas), legend: "r",
+      series: vids.map((v, i) => ({ name: baseName(v.name), color: color(v), width: 1.25, xRef: sheetRef(names[i], XL_COL.dxu, datas[i].n), yRef: sheetRef(names[i], XL_COL.dyu, datas[i].n), xs: datas[i].dxu, ys: datas[i].dyu }))
+    }
+  ];
+  return defs.map((o, i) => {
+    const c1 = 1 + (i % 2) * 11, r1 = 2 + Math.floor(i / 2) * 22;
+    return { anchor: { c1, r1, c2: c1 + 11, r2: r1 + 21 }, xml: chartXml(o) };
+  });
+}
+$("xlsxBtn").onclick = async () => {
+  const vids = exportTargets();
+  if (!vids.length) return;
+  setStatus("Excel を作成中...");
+  try {
+    const used = new Set(["summary", "overlay"]);
+    const names = vids.map(v => sheetNameFor(v.name, used));
+    const datas = vids.map(xlSeriesData);
+    const colorNote = state.colorBy === "group" ? "色 = グループ色（実線 x 成分 / 破線 y 成分）" : "色 = 動画ごと（実線 x 成分 / 破線 y 成分）";
+    const sheets = [
+      { name: "Summary", grid: summaryGrid(vids, names), opts: { boldRows: new Set([0]), freezeRow: 1, widths: [18, 24, 14, 6, 28, 10, 12, 8, 9, 10, 10, 10, 9, 24, 6] } },
+      { name: "Overlay", grid: [[`全サンプルの重ね描画（${vids.length} 本）  ${colorNote}`]], opts: { boldRows: new Set([0]) }, charts: overlayCharts(vids, names, datas) }
+    ];
+    vids.forEach((v, i) => {
+      const widths = CSV_COLS.map(() => 11);
+      widths[18] = 20; widths[19] = 34;
+      sheets.push({ name: names[i], grid: videoSheetGrid(v), opts: { boldRows: new Set([0]), boldCols: new Set([18]), freezeRow: 1, widths }, charts: sampleCharts(names[i], datas[i]) });
+    });
+    const blob = await makeXlsx(sheets);
+    const base = (vids.length === 1 ? `${baseName(vids[0].name)}_results` : "pillar_results") + `_${timestamp()}`;
+    downloadBlob(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${base}.xlsx`);
+    // ログの取り忘れ防止：Excel と同じ名前でログも保存（全動画分）
+    await new Promise(r => setTimeout(r, 400));
+    downloadLog(`${base}_trackerlog.json`);
+    setStatus(`Excel（Summary・Overlay + ${vids.length} サンプル、グラフ付き）とログを保存しました: ${base}.xlsx / ${base}_trackerlog.json`);
+  } catch (err) {
+    console.error(err);
+    setStatus("Excel の作成に失敗しました: " + err.message, true);
+  }
+};
+
+// グラフ画像（PNG）：Web に表示中の 2 つのグラフを 1 枚にまとめて保存
+$("pngBtn").onclick = () => {
+  const a = $("timePlot"), b = $("xyPlot");
+  const e = active();
+  const dpr = window.devicePixelRatio || 1;
+  const gap = Math.round(16 * dpr), head = Math.round(28 * dpr);
+  const out = document.createElement("canvas");
+  out.width = a.width + b.width + gap * 3;
+  out.height = Math.max(a.height, b.height) + head + gap;
+  const g = out.getContext("2d");
+  g.fillStyle = cssVar("--plot-bg") || "#fff";
+  g.fillRect(0, 0, out.width, out.height);
+  g.fillStyle = cssVar("--text") || "#000";
+  g.font = `${Math.round(13 * dpr)}px sans-serif`;
+  g.textBaseline = "middle";
+  const mode = state.plotMode === "overlay" ? `重ね描画（${overlayTargets().length} 本）` : (e ? e.name : "");
+  g.fillText(`${$("metricSelect").selectedOptions[0].text}  —  ${mode}`, gap, head / 2 + gap / 2);
+  g.drawImage(a, gap, head);
+  g.drawImage(b, gap * 2 + a.width, head);
+  out.toBlob(blob => {
+    const name = state.plotMode === "overlay" ? "overlay" : baseName(e ? e.name : "graph");
+    downloadBlob(blob, `${name}_graph_${timestamp()}.png`);
+  }, "image/png");
+};
+$("overlayBtn").onclick = () => {
+  const e = active();
+  if (!e || !e.overlayBlob) return;
+  downloadBlob(e.overlayBlob, `${baseName(e.name)}_overlay_${timestamp()}.${e.overlayExt}`);
+};
+
+// ------------------------------------------------------------------
+// ログの保存・読み込み
+// ------------------------------------------------------------------
+const r6 = v => (v == null ? null : Math.round(v * 1e6) / 1e6);
+function buildLog() {
+  return {
+    format: LOG_FORMAT,
+    app_version: APP_VERSION,
+    created_at: new Date().toISOString(),
+    user_agent: navigator.userAgent,
+    groups: state.groups.map(g => ({ name: g.name, color: g.color })),
+    note: "results の x,y は px 座標（画像左上原点、y 下向き）。mx,my はテンプレートマッチ位置（ROI 外接矩形の左上）。",
+    videos: state.videos.map(e => ({
+      file_name: e.name,
+      group: groupName(e) || null,
+      visible: e.visible,
+      file_size: e.size || null,
+      width: e.width || null,
+      height: e.height || null,
+      duration_s: e.duration || null,
+      settings: cloneObj(e.settings),
+      k_N_per_m_used: Number.isFinite(computeK(e.settings)) ? computeK(e.settings) : null,
+      analyzed_at: e.analyzedAt || null,
+      stale: e.stale,
+      summary: e.results.length ? summarize(e) : null,
+      results: e.results.map(r => ({ frame: r.frame, t: r6(r.t), x: r6(r.x), y: r6(r.y), mx: r.mx, my: r.my, score: r6(r.score), area: r6(r.area), radius: r6(r.radius) }))
+    }))
+  };
+}
+function downloadLog(fileName) {
+  const blob = new Blob([JSON.stringify(buildLog(), null, 1)], { type: "application/json" });
+  downloadBlob(blob, fileName);
+}
+$("saveLogBtn").onclick = () => {
+  if (!state.videos.length) return;
+  const name = state.videos.length === 1 ? baseName(state.videos[0].name) : "session";
+  downloadLog(`${name}_trackerlog_${timestamp()}.json`);
+  setStatus("ログを保存しました。");
+};
+$("loadLogBtn").onclick = () => $("logInput").click();
+$("logInput").onchange = async () => {
+  const f = $("logInput").files[0];
+  $("logInput").value = "";
+  if (!f) return;
+  let log;
+  try { log = JSON.parse(await f.text()); } catch { alert("ログファイルを読めませんでした（JSON 形式ではありません）"); return; }
+  if (log.format !== LOG_FORMAT || !Array.isArray(log.videos)) { alert("OITem Pillar Tracker のログではありません"); return; }
+  await applyLog(log);
+};
+async function applyLog(log) {
+  state.busy = true;
+  updateButtons();
+  let matched = 0, created = 0;
+  const toPrepare = [];
+  for (const g of log.groups || []) findOrCreateGroup(g.name, g.color);
+  for (const lv of log.videos) {
+    const settings = Object.assign(cloneObj(DEFAULT_SETTINGS), lv.settings || {});
+    // 旧形式ログ（k を nN/µm で保存）からの変換：1 nN/µm = 0.001 N/m
+    if (lv.settings && lv.settings.k_nN_per_um != null && lv.settings.k_N_per_m == null) settings.k_N_per_m = lv.settings.k_nN_per_um / 1000;
+    delete settings.k_nN_per_um;
+    if (lv.settings && lv.settings.umPerPxText == null) settings.umPerPxText = String(settings.umPerPx);
+    settings.fpsSource = "log";
+    const results = (lv.results || []).map(r => ({ ...r }));
+    let e = state.videos.find(v => v.name === lv.file_name);
+    if (e) {
+      matched++;
+      if (e.file && lv.file_size && e.size !== lv.file_size) e.error = "ログ記録時とファイルサイズが異なります";
+    } else {
+      e = newEntry(lv.file_name, lv.file_size);
+      e.width = lv.width || 0; e.height = lv.height || 0; e.duration = lv.duration_s || 0;
+      e.status = "logonly";
+      state.videos.push(e);
+      created++;
+    }
+    e.settings = settings;
+    if (lv.group) e.groupId = findOrCreateGroup(lv.group).id;
+    if (typeof lv.visible === "boolean") e.visible = lv.visible;
+    e.logSettings = cloneObj(settings);
+    e.logResults = results;
+    e.results = results.map(r => ({ ...r }));
+    e.analyzedAt = lv.analyzed_at || "";
+    e.stale = !!lv.stale;
+    e.repro = null;
+    if (e.file) toPrepare.push(e);
+  }
+  for (const e of toPrepare) {
+    setStatus(`ログの条件で1フレーム目を再取得中: ${e.name}`);
+    try { await captureFirstFrame(e); e.status = "tracked"; } catch (err) { e.status = "error"; e.error = err.message; }
+  }
+  state.busy = false;
+  if (!state.activeId && state.videos.length) state.activeId = state.videos[0].id;
+  setStatus(`ログを読み込みました（既存の動画 ${matched} 本に適用、新規 ${created} 本）。` + (created ? "同じ名前の動画を追加すると自動で紐づきます。" : "") + "再解析すると、ログの結果と比較します。");
+  await selectVideo(state.activeId, true);
+}
+
+// ------------------------------------------------------------------
+// 動画追加 UI
+// ------------------------------------------------------------------
+$("addVideoBtn").onclick = () => $("videoInput").click();
+$("videoInput").onchange = async () => {
+  const files = $("videoInput").files;
+  if (files && files.length) await addVideoFiles(files);
+  $("videoInput").value = "";
+};
+const dz = $("dropZone");
+["dragenter", "dragover"].forEach(t => dz.addEventListener(t, ev => { ev.preventDefault(); dz.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => dz.addEventListener(t, ev => { ev.preventDefault(); dz.classList.remove("over"); }));
+dz.addEventListener("drop", ev => {
+  if (state.running || state.busy) return;
+  const files = ev.dataTransfer.files;
+  const json = Array.from(files).find(f => /\.json$/i.test(f.name));
+  const videos = Array.from(files).filter(f => !/\.json$/i.test(f.name));
+  (async () => {
+    if (videos.length) await addVideoFiles(videos);
+    if (json) {
+      try {
+        const log = JSON.parse(await json.text());
+        if (log.format === LOG_FORMAT) await applyLog(log); else alert("OITem Pillar Tracker のログではありません");
+      } catch { alert("ログファイルを読めませんでした"); }
+    }
+  })();
+});
+window.addEventListener("beforeunload", ev => { if (state.running) { ev.preventDefault(); ev.returnValue = ""; } });
+
+// 初期表示
+let savedTheme = "dark";
+try { savedTheme = localStorage.getItem("oitem-theme") || "dark"; } catch {}
+applyTheme(savedTheme);
+renderGroupList();
+renderVideoList();
+loadSettingsForm();
+renderResults();
+updateSlider();
+</script>
+</body>
+</html>
