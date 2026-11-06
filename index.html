@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OITem Pillar Tracker v2.7.0</title>
+<title>OITem Pillar Tracker v2.9.0</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -146,6 +146,12 @@
   .sub { font-weight: 600; margin: 10px 0 4px; font-size: 12px; }
   .sub:first-child { margin-top: 0; }
   .check { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .apply-box { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px 8px; background: var(--panel-2); }
+  #applyTargets { max-height: 170px; overflow-y: auto; margin-top: 4px; }
+  #applyTargets label { display: flex; align-items: center; gap: 6px; padding: 2px 2px; cursor: pointer; min-width: 0; }
+  #applyTargets label .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #applyTargets .self { color: var(--muted); cursor: default; }
+  button.linkish { padding: 1px 6px; font-size: 11px; }
   .check input { margin: 0; }
 
   .list-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
@@ -252,7 +258,7 @@
 
 <header>
   <h1>OITem Pillar Tracker</h1>
-  <span class="ver">v2.7.0</span>
+  <span class="ver">v2.9.0</span>
   <span class="spacer"></span>
   <span id="cvStatus">OpenCV.js 読み込み中...</span>
   <div class="seg" id="themeSeg" title="テーマ">
@@ -339,6 +345,9 @@
           <button id="copyRoiBtn">ROIをコピー</button>
           <button id="clearRoiBtn">ROIをクリア</button>
         </div>
+        <div class="row tight">
+          <button id="applyRoiAllBtn" title="この動画の ROI（形状・位置・大きさ）を他のすべての動画に設定します">ROI を全動画に適用</button>
+        </div>
 
         <div class="sub">トラッキング</div>
         <div class="grid2">
@@ -381,8 +390,18 @@
         <label class="check"><input type="checkbox" id="setRecord"> オーバーレイ動画を記録</label>
         <label class="check"><input type="checkbox" id="setTrajectory"> 赤点の軌跡を表示</label>
 
-        <div class="row">
-          <button id="applyAllBtn">ROI 以外の条件（FPS 含む）を全動画に適用</button>
+        <div class="sub">他の動画への適用</div>
+        <div class="apply-box">
+          <div class="hint" style="margin:0 0 4px">表示中の動画の解析条件（ROI 以外：FPS・探索範囲・明るさ・低スコア判定・スケール・ばね定数・出力設定）を、チェックした動画にコピーします。</div>
+          <div class="row tight" style="margin-top:0">
+            <button id="applyTgtAll" class="linkish">すべて選択</button>
+            <button id="applyTgtNone" class="linkish">選択解除</button>
+            <select id="applyTgtGroup" style="width:auto;flex:1;min-width:0;font-size:11px;padding:1px 4px" title="グループ単位で選択"></select>
+          </div>
+          <div id="applyTargets"></div>
+          <div class="row tight">
+            <button id="applyAllBtn">選択した動画に解析条件を適用</button>
+          </div>
         </div>
       </div>
     </section>
@@ -392,7 +411,7 @@
         <details>
           <summary>使い方</summary>
           <ul>
-            <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「ROI 以外の条件を全動画に適用」で全動画に反映できます）。</li>
+            <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「他の動画への適用」で適用先の動画を選んで反映できます）。</li>
             <li>1フレーム目（スライダー左端）でピラー頂点を ROI で囲みます。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
             <li>赤点は、二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
             <li>解析後はスライダーやグラフのクリックで任意のフレームを確認できます。</li>
@@ -514,7 +533,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "2.7.0";
+const APP_VERSION = "2.9.0";
 const LOG_FORMAT = "oitem-pillar-tracker-log";
 
 // ------------------------------------------------------------------
@@ -577,6 +596,7 @@ function newEntry(name, size) {
     groupId: null,
     visible: true,
     exportSel: true,
+    applySel: true,
     checked: false,
     overlayBlob: null, overlayUrl: null, overlayExt: "mp4"
   };
@@ -940,6 +960,7 @@ function renderVideoList() {
   }
   $("runAllBtn").textContent = state.groupFilter === "all" ? "全動画を解析" : "表示中の動画を解析";
   updateBulkBar();
+  renderApplyTargets();
   updateButtons();
 }
 function updateBulkBar() {
@@ -968,6 +989,8 @@ function updateButtons() {
   $("frameSlider").disabled = state.running || !e || !e.file;
   for (const id of ["firstFrameBtn", "prevFrameBtn", "nextFrameBtn"]) $(id).disabled = state.running || !e || !e.file;
   for (const el of $("settingsPanel").querySelectorAll("input,select,button")) el.disabled = state.running || !e;
+  updateApplyBtn();
+  $("applyRoiAllBtn").disabled = state.running || state.busy || !e || !e.settings.roi || state.videos.length < 2;
 }
 
 // ------------------------------------------------------------------
@@ -1120,15 +1143,86 @@ $("copyRoiBtn").onclick = () => {
   navigator.clipboard.writeText(text).then(() => setStatus("ROI をコピーしました: " + text), () => alert(text));
 };
 $("clearRoiBtn").onclick = () => setRoi(null);
+// 「他の動画への適用」：コピーする設定キー（ROI 以外）
+const APPLY_KEYS = ["fps", "fpsSource", "margin", "polarity", "minScore", "umPerPx", "umPerPxText", "kMode", "k_N_per_m", "E_MPa", "D_um", "L_um", "recordOverlay", "showTrajectory"];
+function renderApplyTargets() {
+  const box = $("applyTargets");
+  if (!box) return;
+  const e = active();
+  box.innerHTML = "";
+  if (state.videos.length < 2) { box.innerHTML = '<div class="hint" style="margin:2px">他の動画がありません</div>'; }
+  for (const v of state.videos) {
+    const lab = document.createElement("label");
+    const self = e && v.id === e.id;
+    lab.innerHTML = `<input type="checkbox"><span class="dot"></span><span class="n"></span>`;
+    const c = lab.querySelector("input");
+    const d = lab.querySelector(".dot");
+    if (groupOf(v)) d.style.background = groupColor(v); else d.classList.add("none");
+    d.title = groupName(v) || "未分類";
+    lab.querySelector(".n").textContent = self ? `${v.name}（コピー元）` : v.name;
+    if (self) { lab.classList.add("self"); c.checked = false; c.disabled = true; c.dataset.self = "1"; }
+    else { c.checked = v.applySel; c.onchange = () => { v.applySel = c.checked; updateApplyBtn(); }; }
+    box.appendChild(lab);
+  }
+  const gs = $("applyTgtGroup");
+  gs.innerHTML = "";
+  gs.add(new Option("グループで選択…", ""));
+  for (const g of state.groups) gs.add(new Option(g.name, String(g.id)));
+  gs.add(new Option("未分類", "none"));
+  updateApplyBtn();
+}
+function applyTargetList() {
+  const e = active();
+  return state.videos.filter(v => v !== e && v.applySel);
+}
+function updateApplyBtn() {
+  const n = applyTargetList().length;
+  $("applyAllBtn").textContent = n ? `選択した ${n} 本に解析条件を適用` : "選択した動画に解析条件を適用";
+  $("applyAllBtn").disabled = state.running || state.busy || !active() || !n;
+}
+$("applyTgtAll").onclick = () => { for (const v of state.videos) v.applySel = true; renderApplyTargets(); };
+$("applyTgtNone").onclick = () => { for (const v of state.videos) v.applySel = false; renderApplyTargets(); };
+$("applyTgtGroup").onchange = () => {
+  const val = $("applyTgtGroup").value;
+  if (!val) return;
+  for (const v of state.videos) v.applySel = val === "none" ? !groupOf(v) : v.groupId === Number(val);
+  renderApplyTargets();
+};
+$("applyRoiAllBtn").onclick = () => {
+  const e = active();
+  if (!e) return;
+  const r = e.settings.roi;
+  if (!r) { alert("この動画の ROI が設定されていません"); return; }
+  const others = state.videos.filter(v => v !== e);
+  if (!others.length) { alert("他の動画がありません"); return; }
+  const hasRoi = others.filter(v => v.settings.roi).length;
+  if (hasRoi && !confirm(`ROI を設定済みの動画が ${hasRoi} 本あります。この動画の ROI で上書きしますか？`)) return;
+  let resized = 0;
+  for (const v of others) {
+    const nr = cloneObj(r);
+    if (v.width && v.height) {
+      if (v.width !== e.width || v.height !== e.height) resized++;
+      clampRoi(nr, v.width, v.height);
+    }
+    if (v.results.length && JSON.stringify(v.settings.roi) !== JSON.stringify(nr)) v.stale = true;
+    v.settings.roi = nr;
+    v.settings.roiShape = nr.type;
+  }
+  renderVideoList();
+  renderResults();
+  setStatus(`ROI（${roiText(r)}）を ${others.length} 本の動画に適用しました。` +
+    (resized ? `解像度が異なる ${resized} 本は画面内に収まるよう調整しています。` : "") +
+    "ピラーの位置が動画ごとにずれていないか、各動画の1フレーム目で確認してください。");
+};
 $("applyAllBtn").onclick = async () => {
   const e = active();
   if (!e) return;
-  const keys = ["fps", "fpsSource", "margin", "polarity", "minScore", "umPerPx", "umPerPxText", "kMode", "k_N_per_m", "E_MPa", "D_um", "L_um", "recordOverlay", "showTrajectory"];
+  const targets = applyTargetList();
+  if (!targets.length) { alert("適用先の動画にチェックを入れてください"); return; }
   const refetch = [];
-  for (const v of state.videos) {
-    if (v === e) continue;
+  for (const v of targets) {
     if (v.settings.fps !== e.settings.fps && v.file) refetch.push(v);
-    for (const k of keys) {
+    for (const k of APPLY_KEYS) {
       if (TRACKING_KEYS.includes(k) && v.results.length && v.settings[k] !== e.settings[k]) v.stale = true;
       v.settings[k] = e.settings[k];
     }
@@ -1142,7 +1236,8 @@ $("applyAllBtn").onclick = async () => {
     await renderViewer();
   }
   updateButtons();
-  setStatus(`${state.videos.length - 1} 本の動画に条件を適用しました（ROI は各動画のまま）。`);
+  renderResults();
+  setStatus(`「${e.name}」の解析条件（ROI 以外）を ${targets.length} 本に適用しました: ${targets.map(v => v.name).join("、")}`);
 };
 
 // ------------------------------------------------------------------
