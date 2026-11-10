@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OITem Pillar Tracker v2.9.0</title>
+<title>OITem Pillar Tracker v2.10.0</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -258,7 +258,7 @@
 
 <header>
   <h1>OITem Pillar Tracker</h1>
-  <span class="ver">v2.9.0</span>
+  <span class="ver">v2.10.0</span>
   <span class="spacer"></span>
   <span id="cvStatus">OpenCV.js 読み込み中...</span>
   <div class="seg" id="themeSeg" title="テーマ">
@@ -326,7 +326,8 @@
     <section class="panel">
       <h2>解析条件 <span class="right" id="settingsTarget" style="color:var(--muted);font-size:11px"></span></h2>
       <div class="body" id="settingsPanel">
-        <div class="sub">ROI（1フレーム目で指定）</div>
+        <div class="sub">ROI（どのフレームでも指定可）</div>
+        <div class="hint" id="roiFrameInfo" style="margin:0 0 4px"></div>
         <div class="row tight">
           <div class="seg" id="roiShapeSeg">
             <button data-shape="circle" class="on">円</button>
@@ -412,7 +413,7 @@
           <summary>使い方</summary>
           <ul>
             <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「他の動画への適用」で適用先の動画を選んで反映できます）。</li>
-            <li>1フレーム目（スライダー左端）でピラー頂点を ROI で囲みます。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
+            <li>スライダーで見やすいフレームを表示し、ピラー頂点を ROI で囲みます（どのフレームでも可）。ROI を描いたフレームが「ROI 設定フレーム」になり、そのフレームの画像をテンプレートとして前後両方向に追跡します。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
             <li>赤点は、二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
             <li>解析後はスライダーやグラフのクリックで任意のフレームを確認できます。</li>
             <li>スケールやばね定数は解析後に変更しても再解析は不要で、グラフと CSV にすぐ反映されます。ROI・FPS・探索範囲・明るさを変えた場合は「要再解析」になります。</li>
@@ -434,11 +435,12 @@
           <div id="viewPlaceholder">左のパネルから動画を追加してください</div>
         </div>
         <div class="viewer-bar">
-          <button id="firstFrameBtn" title="1フレーム目（ROI編集）">⏮</button>
+          <button id="firstFrameBtn" title="先頭フレームへ">⏮</button>
           <button id="prevFrameBtn">◀</button>
           <input type="range" id="frameSlider" min="0" max="0" value="0">
           <button id="nextFrameBtn">▶</button>
           <span id="frameLabel">–</span>
+          <button id="roiFrameBtn" title="ROI を設定したフレームへ移動">ROI 設定フレームへ</button>
         </div>
       </div>
     </section>
@@ -533,7 +535,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "2.9.0";
+const APP_VERSION = "2.10.0";
 const LOG_FORMAT = "oitem-pillar-tracker-log";
 
 // ------------------------------------------------------------------
@@ -542,11 +544,11 @@ const LOG_FORMAT = "oitem-pillar-tracker-log";
 const DEFAULT_SETTINGS = {
   fps: 50, fpsSource: "default",
   margin: 40, polarity: "dark", minScore: 0.5,
-  roiShape: "circle", roi: null,
+  roiShape: "circle", roi: null, roiFrame: 0,
   umPerPx: 24 / 11, umPerPxText: "24/11", kMode: "direct", k_N_per_m: 0.748, E_MPa: 2, D_um: 10, L_um: 30,
   recordOverlay: true, showTrajectory: true
 };
-const TRACKING_KEYS = ["fps", "margin", "polarity", "roi"];
+const TRACKING_KEYS = ["fps", "margin", "polarity", "roi", "roiFrame"];
 
 const state = {
   videos: [],
@@ -584,7 +586,8 @@ function newEntry(name, size) {
     file: null, url: null,
     width: 0, height: 0, duration: 0,
     settings: cloneObj(DEFAULT_SETTINGS),
-    firstFrame: null,
+    firstFrame: null,   // ROI 設定フレームの画像（テンプレート元）
+    viewImage: null,    // 表示中フレームの画像 { frame, data }（ROI 編集の再描画用）
     results: [],
     stale: false,
     status: "new",
@@ -832,9 +835,15 @@ function seekTo(t) {
     vid.currentTime = t;
   });
 }
+function roiFrameOf(e) {
+  const n = frameCount(e);
+  return Math.max(0, Math.min(n - 1, Math.round(e.settings.roiFrame || 0)));
+}
+// ROI 設定フレームの画像を取得（テンプレートの元になる）
 async function captureFirstFrame(e) {
   await loadIntoVideoEl(e);
-  await seekTo(frameTime(e, 0));
+  e.settings.roiFrame = roiFrameOf(e);
+  await seekTo(frameTime(e, e.settings.roiFrame));
   workCanvas.width = e.width;
   workCanvas.height = e.height;
   wctx.drawImage(vid, 0, 0, e.width, e.height);
@@ -906,7 +915,8 @@ function removeVideo(id) {
 async function selectVideo(id, force) {
   if (state.running && !force) return;
   state.activeId = id;
-  state.viewFrame = 0;
+  const sel = state.videos.find(v => v.id === id);
+  state.viewFrame = sel && sel.settings.roi ? (sel.settings.roiFrame || 0) : 0;
   renderGroupList();
   renderVideoList();
   loadSettingsForm();
@@ -987,7 +997,7 @@ function updateButtons() {
   $("overlayBtn").disabled = !e || !e.overlayBlob;
   $("pngBtn").disabled = !state.videos.some(v => v.results.length);
   $("frameSlider").disabled = state.running || !e || !e.file;
-  for (const id of ["firstFrameBtn", "prevFrameBtn", "nextFrameBtn"]) $(id).disabled = state.running || !e || !e.file;
+  for (const id of ["firstFrameBtn", "prevFrameBtn", "nextFrameBtn", "roiFrameBtn"]) $(id).disabled = state.running || !e || !e.file;
   for (const el of $("settingsPanel").querySelectorAll("input,select,button")) el.disabled = state.running || !e;
   updateApplyBtn();
   $("applyRoiAllBtn").disabled = state.running || state.busy || !e || !e.settings.roi || state.videos.length < 2;
@@ -1075,7 +1085,7 @@ bindNum("setFps", "fps", async v => {
   if (!e || v <= 0) return;
   e.settings.fpsSource = "manual";
   $("fpsSrc").textContent = "（手入力）";
-  if (e.file) { await captureFirstFrame(e); state.viewFrame = 0; updateSlider(); await renderViewer(); }
+  if (e.file) { await captureFirstFrame(e); state.viewFrame = e.settings.roiFrame; updateSlider(); await renderViewer(); }
 });
 bindNum("setMargin", "margin");
 bindNum("setMinScore", "minScore");
@@ -1139,7 +1149,7 @@ $("copyRoiBtn").onclick = () => {
   const e = active();
   const r = e && e.settings.roi;
   if (!r) { alert("ROI が設定されていません"); return; }
-  const text = r.type === "rect" ? `rect, x=${r.x}, y=${r.y}, w=${r.w}, h=${r.h}` : `circle, cx=${r.cx}, cy=${r.cy}, r=${r.r}`;
+  const text = (r.type === "rect" ? `rect, x=${r.x}, y=${r.y}, w=${r.w}, h=${r.h}` : `circle, cx=${r.cx}, cy=${r.cy}, r=${r.r}`) + `, frame=${e.settings.roiFrame || 0}`;
   navigator.clipboard.writeText(text).then(() => setStatus("ROI をコピーしました: " + text), () => alert(text));
 };
 $("clearRoiBtn").onclick = () => setRoi(null);
@@ -1188,7 +1198,7 @@ $("applyTgtGroup").onchange = () => {
   for (const v of state.videos) v.applySel = val === "none" ? !groupOf(v) : v.groupId === Number(val);
   renderApplyTargets();
 };
-$("applyRoiAllBtn").onclick = () => {
+$("applyRoiAllBtn").onclick = async () => {
   const e = active();
   if (!e) return;
   const r = e.settings.roi;
@@ -1198,21 +1208,33 @@ $("applyRoiAllBtn").onclick = () => {
   const hasRoi = others.filter(v => v.settings.roi).length;
   if (hasRoi && !confirm(`ROI を設定済みの動画が ${hasRoi} 本あります。この動画の ROI で上書きしますか？`)) return;
   let resized = 0;
+  const refetch = [];
   for (const v of others) {
     const nr = cloneObj(r);
     if (v.width && v.height) {
       if (v.width !== e.width || v.height !== e.height) resized++;
       clampRoi(nr, v.width, v.height);
     }
-    if (v.results.length && JSON.stringify(v.settings.roi) !== JSON.stringify(nr)) v.stale = true;
+    const nf = e.settings.roiFrame || 0;
+    if (v.results.length && (JSON.stringify(v.settings.roi) !== JSON.stringify(nr) || (v.settings.roiFrame || 0) !== nf)) v.stale = true;
+    const frameChanged = (v.settings.roiFrame || 0) !== nf;
     v.settings.roi = nr;
     v.settings.roiShape = nr.type;
+    v.settings.roiFrame = nf;
+    if (frameChanged && v.file) refetch.push(v);
+  }
+  // ROI 設定フレームが変わった動画は、そのフレームの画像を取り直す
+  if (refetch.length) {
+    state.busy = true; updateButtons();
+    for (const v of refetch) { try { await captureFirstFrame(v); } catch (err) { v.error = err.message; } }
+    state.busy = false;
   }
   renderVideoList();
   renderResults();
-  setStatus(`ROI（${roiText(r)}）を ${others.length} 本の動画に適用しました。` +
+  updateButtons();
+  setStatus(`ROI（${roiText(r)}、frame ${e.settings.roiFrame || 0}）を ${others.length} 本の動画に適用しました。` +
     (resized ? `解像度が異なる ${resized} 本は画面内に収まるよう調整しています。` : "") +
-    "ピラーの位置が動画ごとにずれていないか、各動画の1フレーム目で確認してください。");
+    "ピラーの位置が動画ごとにずれていないか、各動画の ROI 設定フレームで確認してください。");
 };
 $("applyAllBtn").onclick = async () => {
   const e = active();
@@ -1228,7 +1250,7 @@ $("applyAllBtn").onclick = async () => {
     }
   }
   renderVideoList();
-  // FPS が変わった動画は1フレーム目（フレーム中央の時刻）を取り直す
+  // FPS が変わった動画は ROI 設定フレームの画像（フレーム中央の時刻）を取り直す
   if (refetch.length) {
     state.busy = true; updateButtons();
     for (const v of refetch) { try { await captureFirstFrame(v); } catch (err) { v.error = err.message; } }
@@ -1261,16 +1283,42 @@ function clampRoi(r, W, H) {
 function roiBox(r) {
   return r.type === "rect" ? { x: r.x, y: r.y, w: r.w, h: r.h } : { x: r.cx - r.r, y: r.cy - r.r, w: 2 * r.r, h: 2 * r.r };
 }
+// 表示中フレームの画像（ROI 設定フレームならテンプレート画像）
+function currentBaseImage(e) {
+  if (!e) return null;
+  if (state.viewFrame === e.settings.roiFrame && e.firstFrame) return e.firstFrame;
+  if (e.viewImage && e.viewImage.frame === state.viewFrame) return e.viewImage.data;
+  return null;
+}
 function setRoi(r) {
   const e = active();
   if (!e) return;
-  if (r) { clampRoi(r, e.width, e.height); e.settings.roiShape = r.type; }
+  if (r) {
+    clampRoi(r, e.width, e.height);
+    e.settings.roiShape = r.type;
+    // ROI を描いた／動かしたフレームを ROI 設定フレームにする
+    if (state.viewFrame !== e.settings.roiFrame) {
+      const img = currentBaseImage(e);
+      if (img) { e.firstFrame = img; onSettingChanged("roiFrame", state.viewFrame); }
+    }
+  }
   onSettingChanged("roi", r ? cloneObj(r) : null);
   setRoiShapeUi(r ? r.type : e.settings.roiShape);
   syncRoiInputs();
   updateButtons();
-  if (state.viewFrame !== 0) { state.viewFrame = 0; updateSlider(); }
-  renderViewer();
+  updateRoiFrameInfo();
+  drawFirstFrameView();
+  updateModeLabel();
+  updateFrameLabel();
+}
+function updateRoiFrameInfo() {
+  const e = active();
+  const el = $("roiFrameInfo");
+  if (!e || !e.width) { el.textContent = ""; return; }
+  const f = e.settings.roiFrame || 0;
+  el.textContent = e.settings.roi
+    ? `ROI 設定フレーム: frame ${f}（t = ${(f / e.settings.fps).toFixed(3)} s）`
+    : "ROI 未設定：見やすいフレームを表示して、ピラー頂点をドラッグで囲んでください";
 }
 
 const drag = { on: false, mode: null, handle: null, start: null, roi0: null, preview: null };
@@ -1306,7 +1354,7 @@ function insideRoi(r, p) {
 }
 function canEditRoi() {
   const e = active();
-  return e && e.firstFrame && !state.running && state.viewFrame === 0;
+  return e && e.firstFrame && !state.running && !!currentBaseImage(e);
 }
 viewCanvas.addEventListener("pointerdown", ev => {
   if (!canEditRoi()) return;
@@ -1375,6 +1423,8 @@ function endDrag() {
   } else {
     const r = e.settings.roi;
     e.settings.roi = drag.roi0;
+    // クリックしただけ（位置・大きさが変わらない）なら ROI 設定フレームも変えない
+    if (JSON.stringify(r) === JSON.stringify(drag.roi0)) { drawFirstFrameView(); return; }
     setRoi(r);
   }
 }
@@ -1423,17 +1473,22 @@ function drawHandles(ctx, r, e) {
   }
   ctx.restore();
 }
+// 表示中フレーム（任意）に、追跡結果と ROI を重ねて描画（ROI 編集中の再描画にも使用）
 function drawFirstFrameView() {
   const e = active();
-  if (!e || !e.firstFrame) return;
+  if (!e) return;
+  const img = currentBaseImage(e);
+  if (!img) return;
   if (viewCanvas.width !== e.width || viewCanvas.height !== e.height) { viewCanvas.width = e.width; viewCanvas.height = e.height; }
-  vctx.putImageData(e.firstFrame, 0, 0);
+  vctx.putImageData(img, 0, 0);
+  if (e.results.length && !e.stale) drawTrackOverlay(vctx, e, e.results, state.viewFrame);
   const r = e.settings.roi;
-  if (r) { drawRoiShape(vctx, r, "#ff3b30", lw(e)); drawHandles(vctx, r, e); }
+  if (r) {
+    const onRoiFrame = state.viewFrame === e.settings.roiFrame;
+    drawRoiShape(vctx, r, "#ff3b30", lw(e), onRoiFrame ? null : [6, 4]);
+    if (!state.running) drawHandles(vctx, r, e);
+  }
   if (drag.on && drag.mode === "new" && drag.preview) drawRoiShape(vctx, drag.preview, "#ff3b30", lw(e), [6, 4]);
-  // 1フレーム目の検出結果があれば赤点を表示
-  const row = e.results[0];
-  if (row && row.x != null) drawPoint(vctx, row.x, row.y, e);
 }
 function drawPoint(ctx, x, y, e) {
   ctx.save();
@@ -1451,7 +1506,7 @@ function drawTrajectory(ctx, rows, upto, e) {
   let started = false;
   for (let i = 0; i <= upto && i < rows.length; i++) {
     const r = rows[i];
-    if (r.x == null) continue;
+    if (!r || r.x == null) continue;
     if (!started) { ctx.moveTo(r.x, r.y); started = true; } else ctx.lineTo(r.x, r.y);
   }
   ctx.stroke();
@@ -1501,23 +1556,27 @@ async function renderViewer() {
   if (!e.firstFrame) { ph.style.display = ""; ph.textContent = e.status === "error" ? "動画を読み込めませんでした: " + e.error : "準備中..."; updateModeLabel(); return; }
   ph.style.display = "none";
   updateModeLabel();
-  if (state.viewFrame === 0) { drawFirstFrameView(); return; }
+  updateRoiFrameInfo();
+  if (currentBaseImage(e)) { drawFirstFrameView(); return; }
   const token = ++viewToken;
   const f = state.viewFrame;
   await loadIntoVideoEl(e);
   await seekTo(frameTime(e, f));
   if (token !== viewToken || state.running) return;
-  viewCanvas.width = e.width; viewCanvas.height = e.height;
-  vctx.drawImage(vid, 0, 0, e.width, e.height);
-  if (!e.stale) drawTrackOverlay(vctx, e, e.results, f);
+  workCanvas.width = e.width; workCanvas.height = e.height;
+  wctx.drawImage(vid, 0, 0, e.width, e.height);
+  e.viewImage = { frame: f, data: wctx.getImageData(0, 0, e.width, e.height) };
+  drawFirstFrameView();
 }
 function updateModeLabel() {
   const e = active();
   const el = $("modeLabel");
   if (!e || !e.firstFrame) { el.textContent = ""; return; }
   if (state.running) el.textContent = "解析中";
-  else if (state.viewFrame === 0) el.textContent = "ROI 編集モード（1フレーム目）";
-  else el.textContent = "確認モード（ROI 編集は ⏮ で1フレーム目へ）";
+  else if (state.viewFrame === e.settings.roiFrame) el.textContent = `ROI 設定フレーム（frame ${e.settings.roiFrame}）`;
+  else el.textContent = e.settings.roi
+    ? `ここで ROI を描く・動かすと、設定フレームが frame ${state.viewFrame} に変わります（現在 frame ${e.settings.roiFrame}）`
+    : "ROI をドラッグで描けます";
 }
 function updateSlider() {
   const e = active();
@@ -1531,7 +1590,8 @@ function updateFrameLabel() {
   const e = active();
   if (!e || !e.settings.fps) { $("frameLabel").textContent = "–"; return; }
   const n = frameCount(e);
-  $("frameLabel").textContent = `frame ${state.viewFrame} / ${n - 1}   t = ${(state.viewFrame / e.settings.fps).toFixed(3)} s`;
+  $("frameLabel").textContent = `frame ${state.viewFrame} / ${n - 1}   t = ${(state.viewFrame / e.settings.fps).toFixed(3)} s` +
+    (e.settings.roi && state.viewFrame === e.settings.roiFrame ? "  ◆ROI" : "");
 }
 async function gotoFrame(f) {
   const e = active();
@@ -1545,6 +1605,7 @@ async function gotoFrame(f) {
 }
 $("frameSlider").addEventListener("input", () => gotoFrame(Number($("frameSlider").value)));
 $("firstFrameBtn").onclick = () => gotoFrame(0);
+$("roiFrameBtn").onclick = () => { const e = active(); if (e) gotoFrame(e.settings.roiFrame || 0); };
 $("prevFrameBtn").onclick = () => gotoFrame(state.viewFrame - 1);
 $("nextFrameBtn").onclick = () => gotoFrame(state.viewFrame + 1);
 
@@ -1670,7 +1731,7 @@ async function trackVideo(e, label) {
   viewCanvas.width = W; viewCanvas.height = H;
   $("viewPlaceholder").style.display = "none";
 
-  // テンプレートは常に1フレーム目から作る（不具合修正：解析後に ROI を触っても最終フレームから作らない）
+  // テンプレートは ROI 設定フレームの画像から作る
   const box = roiBox(s.roi);
   const first = cv.matFromImageData(e.firstFrame);
   const firstGray = toGray(first);
@@ -1678,50 +1739,78 @@ async function trackVideo(e, label) {
   first.delete(); firstGray.delete();
 
   const n = frameCount(e);
-  const rows = [];
-  let lastX = box.x, lastY = box.y;
+  const f0 = Math.min(s.roiFrame || 0, n - 1);
+  const rows = new Array(n).fill(null);
+  const emptyRow = f => ({ frame: f, t: f / s.fps, x: null, y: null, mx: null, my: null, score: null, area: null, radius: null });
+  const filled = () => rows.map((r, i) => r || emptyRow(i));
   const rec = makeRecorder(e);
   e.results = [];
   e.status = "running";
   renderVideoList();
 
+  // 1 フレームを解析して行データを返す（last は直前のマッチ位置）
+  const last = { x: box.x, y: box.y };
+  async function trackAt(f) {
+    await seekTo(frameTime(e, f));
+    wctx.drawImage(vid, 0, 0, W, H);
+    const rgba = cv.imread(workCanvas);
+    const gray = toGray(rgba);
+    rgba.delete();
+    const t = trackFrame(gray, template, last.x, last.y, s, W, H);
+    gray.delete();
+    const row = emptyRow(f);
+    if (t) {
+      row.mx = t.mx; row.my = t.my; row.score = t.score;
+      if (t.x != null) {
+        Object.assign(row, { x: t.x, y: t.y, area: t.area, radius: t.radius });
+        last.x = t.mx; last.y = t.my;
+      }
+    }
+    return row;
+  }
+  // 進捗：後ろ向き f0 フレーム + 前向き (n - f0) + 録画用の再描画 f0
+  const total = n + (rec ? f0 : 0);
+  let done = 0;
+  async function tick(f) {
+    done++;
+    if (done % 5 === 0 || done === total) {
+      setProgress(done / total);
+      setStatus(`${label}解析中: ${e.name}  ${done} / ${total}` + (f0 ? `（ROI 設定フレーム ${f0} から前後に追跡）` : ""));
+      if (done % 20 === 0) { e.results = filled(); drawPlots(); }
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
   try {
+    // ① ROI 設定フレームより前：後ろ向きに追跡（f0-1 → 0）
+    for (let f = f0 - 1; f >= 0; f--) {
+      if (state.abort) break;
+      rows[f] = await trackAt(f);
+      vctx.drawImage(workCanvas, 0, 0);
+      drawTrackOverlay(vctx, e, rows, f);
+      await tick(f);
+    }
+    // ② 時間順に処理：f0 以降は前向きに追跡、f0 より前は録画のため描画のみ
+    last.x = box.x; last.y = box.y;
     for (let f = 0; f < n; f++) {
       if (state.abort) break;
-      await seekTo(frameTime(e, f));
-      wctx.drawImage(vid, 0, 0, W, H);
-      const rgba = cv.imread(workCanvas);
-      const gray = toGray(rgba);
-      rgba.delete();
-      const t = trackFrame(gray, template, lastX, lastY, s, W, H);
-      gray.delete();
-
-      const row = { frame: f, t: f / s.fps, x: null, y: null, mx: null, my: null, score: null, area: null, radius: null };
-      if (t) {
-        row.mx = t.mx; row.my = t.my; row.score = t.score;
-        if (t.x != null) {
-          Object.assign(row, { x: t.x, y: t.y, area: t.area, radius: t.radius });
-          lastX = t.mx; lastY = t.my;
-        }
+      if (f < f0) {
+        if (!rec) continue;
+        await seekTo(frameTime(e, f));
+        wctx.drawImage(vid, 0, 0, W, H);
+      } else {
+        rows[f] = await trackAt(f);
       }
-      rows.push(row);
-
       vctx.drawImage(workCanvas, 0, 0);
       drawTrackOverlay(vctx, e, rows, f);
       if (rec) await rec.frame();
-
-      if (f % 5 === 0 || f === n - 1) {
-        setProgress((f + 1) / n);
-        setStatus(`${label}解析中: ${e.name}  ${f + 1} / ${n}`);
-        if (f % 20 === 0) { e.results = rows; drawPlots(); }
-        await new Promise(r => setTimeout(r, 0));
-      }
+      await tick(f);
     }
   } finally {
     template.delete();
     if (rec) await rec.stop();
   }
-  e.results = rows;
+  e.results = filled();
   e.stale = false;
   e.analyzedAt = new Date().toISOString();
   e.status = "tracked";
@@ -2290,9 +2379,10 @@ function csvMeta(e) {
     `# analyzed_at: ${e.analyzedAt || ""}`,
     `# fps: ${s.fps} (${s.fpsSource})`,
     `# roi: ${roiText(s.roi)}`,
+    `# roi_frame: ${s.roiFrame || 0} (template frame; tracked forward and backward)`,
     `# search_margin_px: ${s.margin}`,
     `# target_polarity: ${s.polarity} (OTSU, ${s.polarity === "bright" ? "THRESH_BINARY" : "THRESH_BINARY_INV"})`,
-    `# center_method: minEnclosingCircle / template: TM_CCOEFF_NORMED (grayscale, first frame)`,
+    `# center_method: minEnclosingCircle / template: TM_CCOEFF_NORMED (grayscale, ROI frame)`,
     `# um_per_px: ${s.umPerPx}${s.umPerPxText ? ` (${s.umPerPxText})` : ""}`,
     `# k_N_per_m: ${Number.isFinite(k) ? k.toPrecision(6) : ""} (${s.kMode}${s.kMode === "geometry" ? `: E=${s.E_MPa}MPa D=${s.D_um}um L=${s.L_um}um` : ""})`,
     `# low_score_threshold: ${s.minScore}`,
@@ -2578,6 +2668,7 @@ function conditionPairs(e) {
     ["group", groupName(e) || "(未分類)"],
     ["fps", s.fps],
     ["roi", roiText(s.roi)],
+    ["roi_frame", s.roiFrame || 0],
     ["search_margin_px", s.margin],
     ["target_polarity", s.polarity],
     ["um_per_px", s.umPerPx],
@@ -2614,11 +2705,11 @@ function videoSheetGrid(e) {
   return grid;
 }
 function summaryGrid(vids, sheetNames) {
-  const head = ["sheet", "video_file", "group", "fps", "roi", "um_per_px", "k_N_per_m", "frames", "detected", "max_d_um", "max_F_uN", "mean_score", "low_score_frames", "analyzed_at", "stale"];
+  const head = ["sheet", "video_file", "group", "fps", "roi", "roi_frame", "um_per_px", "k_N_per_m", "frames", "detected", "max_d_um", "max_F_uN", "mean_score", "low_score_frames", "analyzed_at", "stale"];
   const grid = [head];
   vids.forEach((v, i) => {
     const sm = summarize(v);
-    grid.push([sheetNames[i], v.name, groupName(v) || "(未分類)", v.settings.fps, roiText(v.settings.roi), v.settings.umPerPx,
+    grid.push([sheetNames[i], v.name, groupName(v) || "(未分類)", v.settings.fps, roiText(v.settings.roi), v.settings.roiFrame || 0, v.settings.umPerPx,
       rnd(sm.k_N_per_m, 6), sm.frames, sm.detected, rnd(sm.max_d_um, 4), rnd(sm.max_F_uN, 4), rnd(sm.mean_score, 4),
       sm.low_score_frames, v.analyzedAt || "", v.stale ? "yes" : "no"]);
   });
@@ -2713,7 +2804,7 @@ $("xlsxBtn").onclick = async () => {
     const datas = vids.map(xlSeriesData);
     const colorNote = state.colorBy === "group" ? "色 = グループ色（実線 x 成分 / 破線 y 成分）" : "色 = 動画ごと（実線 x 成分 / 破線 y 成分）";
     const sheets = [
-      { name: "Summary", grid: summaryGrid(vids, names), opts: { boldRows: new Set([0]), freezeRow: 1, widths: [18, 24, 14, 6, 28, 10, 12, 8, 9, 10, 10, 10, 9, 24, 6] } },
+      { name: "Summary", grid: summaryGrid(vids, names), opts: { boldRows: new Set([0]), freezeRow: 1, widths: [18, 24, 14, 6, 28, 9, 10, 12, 8, 9, 10, 10, 10, 9, 24, 6] } },
       { name: "Overlay", grid: [[`全サンプルの重ね描画（${vids.length} 本）  ${colorNote}`]], opts: { boldRows: new Set([0]) }, charts: overlayCharts(vids, names, datas) }
     ];
     vids.forEach((v, i) => {
@@ -2850,7 +2941,7 @@ async function applyLog(log) {
     if (e.file) toPrepare.push(e);
   }
   for (const e of toPrepare) {
-    setStatus(`ログの条件で1フレーム目を再取得中: ${e.name}`);
+    setStatus(`ログの条件で ROI 設定フレームを再取得中: ${e.name}`);
     try { await captureFirstFrame(e); e.status = "tracked"; } catch (err) { e.status = "error"; e.error = err.message; }
   }
   state.busy = false;
