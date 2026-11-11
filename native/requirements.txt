@@ -1,0 +1,7 @@
+# 解析エンジン（OpenCV は Web 版の OpenCV.js と同じ 4.10 系）
+opencv-python-headless==4.10.0.84
+av>=14,<17
+numpy>=1.26
+pillow>=10
+# アプリのウィンドウ（macOS: WKWebView / Windows: Edge WebView2）
+pywebview>=5.3
