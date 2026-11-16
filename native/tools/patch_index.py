@@ -127,6 +127,7 @@ rep('''async function runAnalysis(list) {
   updateModeLabel();
   const t0 = performance.now();
   const jobs = [];
+  let collected = 0;
   try {
     for (const e of targets) {
       await nativeOpen(e);
@@ -174,6 +175,7 @@ rep('''async function runAnalysis(list) {
               } catch (err) { console.warn(err); }
             }
             j.ok = true;
+            try { if (await collectSample(e)) collected++; } catch (err) { console.warn("学習データの保存に失敗", err); }
           } else if (d.state === "aborted") {
             e.status = e.results.length ? "tracked" : "ready";
             e.stale = !!e.results.length;
@@ -207,7 +209,8 @@ rep('''async function runAnalysis(list) {
   const sec = ((performance.now() - t0) / 1000).toFixed(1);
   if (state.abort) setStatus(`中止しました（完了 ${done} 本）。`);
   else if (errs.length) setStatus(`解析完了: ${done} 本、エラー ${errs.length} 本（${errs.map(e => e.e.name).join(", ")}）`, true);
-  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : ""));
+  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : "") +
+    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : ""));
 }
 async function runAnalysis(list) {
   if (NATIVE) {
@@ -223,6 +226,81 @@ rep('''$("abortBtn").onclick = () => { state.abort = true; setStatus("中止し�
   setStatus("中止しています...");
   if (NATIVE) napi("/api/abort", { method: "POST" }).catch(() => {});
 };''')
+
+# ---------------------------------------------------------------- ROI 学習データはアプリのデータフォルダに保存
+# （ネイティブ版は起動ごとにポートが変わり、IndexedDB が引き継がれないため）
+rep('const dsStore = { getAll: idbGetAll, putMany: idbPutMany, clear: idbClear, label: "このブラウザ" };\n',
+    '''const dsStore = { getAll: idbGetAll, putMany: idbPutMany, clear: idbClear, label: "このブラウザ" };
+if (NATIVE) {
+  // ネイティブ版：保存（手元の控え・共有フォルダとも）は Python 側が行う
+  dsStore.label = "このアプリ";
+  dsStore.getAll = async () => {
+    const d = await (await napi("/api/dataset")).json();
+    nativeDsLocation(d.location);
+    return d.samples || [];
+  };
+  dsStore.putMany = async list => {
+    if (!list.length) return;
+    const r = await napi("/api/dataset/put", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ samples: list }) });
+    nativeDsLocation((await r.json()).location);
+  };
+  dsStore.clear = async () => { await napi("/api/dataset/clear", { method: "POST" }); };
+}
+function nativeDsLocation(loc) {
+  if (!loc || typeof dsShared === "undefined") return;
+  dsShared.kind = loc.kind === "folder" ? "folder" : "browser";
+  dsShared.name = loc.name || "";
+  dsShared.connected = !!loc.connected;
+  dsShared.path = loc.path || "";
+}
+''')
+rep('''  async useBrowser() {
+    this.kind = "browser"; this.connected = false; this.handle = null; this.dir = null; this.name = "";
+    try { await kvSet("dsDir", undefined); } catch {}
+  }
+};
+''', '''  async useBrowser() {
+    this.kind = "browser"; this.connected = false; this.handle = null; this.dir = null; this.name = "";
+    try { await kvSet("dsDir", undefined); } catch {}
+  }
+};
+if (NATIVE) {
+  // 共有フォルダは Python 側で読み書きする（フォルダ選択はネイティブのダイアログ）
+  const nativeFolder = async body => {
+    const r = await napi("/api/dataset/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.cancelled) { const err = new Error("cancelled"); err.name = "AbortError"; throw err; }
+    nativeDsLocation(d.location);
+    const before = dataset.samples.length;
+    mergeSamples(d.samples || []);
+    return { got: dataset.samples.length - before, pushed: 0 };
+  };
+  dsShared.supported = true;
+  dsShared.init = async () => {};
+  dsShared.write = async () => {};
+  dsShared.choose = async () => {
+    try { return await nativeFolder({ choose: true }); }
+    catch (err) {
+      if (!/no dialog/.test(err.message)) throw err;
+      const path = prompt("共有フォルダのパスを入力してください（例: /Volumes/lab/pillar や \\\\\\\\server\\\\share\\\\pillar）");
+      if (!path) { const e = new Error("cancelled"); e.name = "AbortError"; throw e; }
+      return await nativeFolder({ path });
+    }
+  };
+  dsShared.reconnect = async () => {
+    const before = dataset.samples.length;
+    mergeSamples(await dsStore.getAll());
+    if (!dsShared.connected) throw new Error("共有フォルダにつながりません（ネットワークやフォルダの場所を確認してください）");
+    return { got: dataset.samples.length - before, pushed: 0 };
+  };
+  dsShared.refresh = async () => {
+    const changed = mergeSamples(await dsStore.getAll());
+    return changed.length;
+  };
+  dsShared.useBrowser = async () => { await nativeFolder({ path: null }); };
+}
+''')
+rep("このブラウザにも控えを残すので", "このアプリのデータフォルダにも控えを残すので")
 
 # ---------------------------------------------------------------- ログに解析エンジンを記録
 rep('''    app_version: APP_VERSION,

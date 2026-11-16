@@ -45,7 +45,16 @@ def run_window(app, srv):
             f.write(data)
         return path
 
+    def folder_dialog():
+        win = holder["win"]
+        kind = webview.FileDialog.FOLDER if hasattr(webview, "FileDialog") else webview.FOLDER_DIALOG
+        res = win.create_file_dialog(kind)
+        if not res:
+            return None
+        return res if isinstance(res, str) else res[0]
+
     app.save_dialog = save_dialog
+    app.folder_dialog = folder_dialog
     win = webview.create_window(server.APP_NAME, url, width=1440, height=920, min_size=(960, 640),
                                 text_select=True)
     holder["win"] = win

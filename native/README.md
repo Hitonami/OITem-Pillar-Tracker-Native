@@ -30,6 +30,13 @@ GitHub の **Actions** タブ → 「Build native app」→ 最新の実行 → 
 2. `OITem Pillar Tracker.exe` を起動します。初回に SmartScreen が出たら「詳細情報」→「実行」。
 3. 画面表示には Microsoft Edge WebView2 ランタイムを使います（Windows 10 / 11 には通常入っています）。
 
+## ROI 学習データと自動 ROI（v1.1.0〜、Web 版 v2.11.0〜）
+
+- 手動で描いた ROI で解析すると、ROI 設定フレームの画像と ROI が学習データとして保存されます。ネイティブ版の保存先はアプリのデータフォルダ（macOS: `~/Library/Application Support/OITem Pillar Tracker/roi_dataset.json`、Windows: `%APPDATA%\OITem Pillar Tracker\roi_dataset.json`）です。
+- 「共有フォルダを選ぶ」で研究室の NAS やクラウド同期フォルダを選ぶと、その中の `OITem_ROI_dataset/` に 1 サンプル 1 ファイルで保存し、他の人のデータも自動 ROI に使います。Web 版（Chrome・Edge）と同じ形式・ファイル名なので、同じフォルダを Web 版とネイティブ版で共有できます。共有フォルダにつながらないときは手元の控えに保存し、つながったときに送ります。選んだフォルダは `config.json`（同じデータフォルダ）に記録されます。
+- 「ROI 学習データ」パネルの書き出し・読み込み（.json）は Web 版と共通の形式なので、Web 版で集めたデータをそのまま読み込めます。
+- 自動 ROI は画面側（同梱の opencv.js）で動かします。ビルド時にリポジトリ直下の `opencv.js` を同梱します。
+
 ## Web 版との違い（解析結果）
 
 解析の手順・パラメータ（テンプレートマッチ TM_CCOEFF_NORMED、Gaussian 5×5、大津の二値化、最小外接円、探索範囲、前後方向の追跡）は Web 版と同じで、OpenCV も同じ 4.10 系です。同じ画素を入れたときに Web 版と結果が一致することを確認しています。ただし、動画のデコードがブラウザと違うため、次の差が出ます。

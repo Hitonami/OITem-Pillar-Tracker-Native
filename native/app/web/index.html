@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OITem Pillar Tracker v2.10.0</title>
+<title>OITem Pillar Tracker v2.11.0</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -324,6 +324,36 @@
     </section>
 
     <section class="panel">
+      <h2>ROI 学習データ <span class="right" id="dsCount" style="color:var(--muted);font-size:11px"></span></h2>
+      <div class="body">
+        <div class="hint" id="dsLocation" style="margin:0 0 4px"></div>
+        <div class="row tight">
+          <button id="dsFolderBtn" title="研究室の NAS や OneDrive・Google ドライブなどの同期フォルダを選ぶと、全員の学習データをそこに集められます">共有フォルダを選ぶ</button>
+          <button id="dsReconnectBtn" class="primary" style="display:none">共有フォルダに再接続</button>
+          <button id="dsRefreshBtn" style="display:none" title="他の人が追加したデータを読み込みます">再読み込み</button>
+          <button id="dsBrowserBtn" style="display:none" title="共有フォルダへの保存をやめ、このブラウザだけに保存します（共有フォルダのデータは消えません）">共有をやめる</button>
+        </div>
+        <label class="check"><input type="checkbox" id="dsCollect" checked> 解析のたびに ROI を学習データとして集める</label>
+        <label class="check"><input type="checkbox" id="dsCollectAuto"> 修正していない自動 ROI・コピーした ROI も集める</label>
+        <div class="row tight">
+          <button id="dsExportBtn">書き出し (.json)</button>
+          <button id="dsImportBtn">読み込み（統合）</button>
+          <input type="file" id="dsInput" accept=".json,application/json" multiple hidden>
+        </div>
+        <div class="row tight">
+          <button id="dsEvalBtn" title="各サンプルを自分以外のデータで自動検出し、手動 ROI との差を調べます">精度を確認</button>
+          <button id="dsClearBtn">学習データを消去</button>
+        </div>
+        <div class="hint" id="dsEvalResult"></div>
+        <div class="hint">
+          手動で描いた（または自動 ROI を直した）ROI で解析すると、ROI 設定フレームの画像と ROI が保存されます（検出率 80% 未満の解析は除外）。同じ動画を再解析すると上書きします。データが増えるほど「自動 ROI」の精度が上がります。<br>
+          共有フォルダを選ぶと、そのフォルダの中の「OITem_ROI_dataset」に 1 件 1 ファイルで保存し、他の人が保存したデータも自動 ROI に使います（Chrome・Edge・ネイティブ版で使えます）。このアプリのデータフォルダにも控えを残すので、共有フォルダにつながらないときも使えます。<br>
+          書き出した .json は「読み込み（統合）」で合算できます。ログ（.json）と動画を読み込んで解析しても、過去の ROI を集められます。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>解析条件 <span class="right" id="settingsTarget" style="color:var(--muted);font-size:11px"></span></h2>
       <div class="body" id="settingsPanel">
         <div class="sub">ROI（どのフレームでも指定可）</div>
@@ -349,6 +379,11 @@
         <div class="row tight">
           <button id="applyRoiAllBtn" title="この動画の ROI（形状・位置・大きさ）を他のすべての動画に設定します">ROI を全動画に適用</button>
         </div>
+        <div class="row tight">
+          <button id="autoRoiBtn" title="学習データをもとに、表示中のフレームでピラー頂点を探して ROI を置きます">自動 ROI（この動画）</button>
+          <button id="autoRoiAllBtn" title="ROI 未設定の動画すべてに、ROI 設定フレーム（既定は frame 0）で自動 ROI を置きます">ROI 未設定の動画に自動 ROI</button>
+        </div>
+        <div class="hint" id="autoRoiInfo" style="margin-top:4px"></div>
 
         <div class="sub">トラッキング</div>
         <div class="grid2">
@@ -414,6 +449,7 @@
           <ul>
             <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「他の動画への適用」で適用先の動画を選んで反映できます）。</li>
             <li>スライダーで見やすいフレームを表示し、ピラー頂点を ROI で囲みます（どのフレームでも可）。ROI を描いたフレームが「ROI 設定フレーム」になり、そのフレームの画像をテンプレートとして前後両方向に追跡します。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
+            <li>自動 ROI：解析で集めた学習データ（過去の ROI と画像）と表示中フレームを照合し、最も多くのサンプルが一致した位置に ROI を置きます。自動 ROI はオレンジで表示されます。一致度が低い動画は「自動ROI 要確認」になるので、確認・修正してから解析してください。直した ROI は次から学習データになります。</li>
             <li>赤点は、二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
             <li>解析後はスライダーやグラフのクリックで任意のフレームを確認できます。</li>
             <li>スケールやばね定数は解析後に変更しても再解析は不要で、グラフと CSV にすぐ反映されます。ROI・FPS・探索範囲・明るさを変えた場合は「要再解析」になります。</li>
@@ -535,7 +571,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "2.10.0";
+const APP_VERSION = "2.11.0";
 const LOG_FORMAT = "oitem-pillar-tracker-log";
 
 // ------------------------------------------------------------------
@@ -544,7 +580,7 @@ const LOG_FORMAT = "oitem-pillar-tracker-log";
 const DEFAULT_SETTINGS = {
   fps: 50, fpsSource: "default",
   margin: 40, polarity: "dark", minScore: 0.5,
-  roiShape: "circle", roi: null, roiFrame: 0,
+  roiShape: "circle", roi: null, roiFrame: 0, roiSource: null,
   umPerPx: 24 / 11, umPerPxText: "24/11", kMode: "direct", k_N_per_m: 0.748, E_MPa: 2, D_um: 10, L_um: 30,
   recordOverlay: true, showTrajectory: true
 };
@@ -620,6 +656,7 @@ function newEntry(name, size) {
     logResults: null,
     logSettings: null,
     repro: null,
+    autoRoi: null,      // 自動 ROI の検出情報 { score, agreement, support, total, low }
     groupId: null,
     visible: true,
     exportSel: true,
@@ -987,6 +1024,7 @@ function statusBadge(e) {
   if (e.results.length && e.repro && !e.repro.match) return ["ログと差あり", "warn"];
   if (e.results.length) return ["解析済", "ok"];
   if (!e.settings.roi) return ["ROI未設定", ""];
+  if (e.settings.roiSource === "auto") return e.autoRoi && e.autoRoi.low ? ["自動ROI 要確認", "warn"] : ["自動ROI", ""];
   return ["未解析", ""];
 }
 function renderVideoList() {
@@ -1051,6 +1089,7 @@ function updateButtons() {
   for (const el of $("settingsPanel").querySelectorAll("input,select,button")) el.disabled = state.running || !e;
   updateApplyBtn();
   $("applyRoiAllBtn").disabled = state.running || state.busy || !e || !e.settings.roi || state.videos.length < 2;
+  updateDatasetButtons();
 }
 
 // ------------------------------------------------------------------
@@ -1271,6 +1310,8 @@ $("applyRoiAllBtn").onclick = async () => {
     v.settings.roi = nr;
     v.settings.roiShape = nr.type;
     v.settings.roiFrame = nf;
+    v.settings.roiSource = "copied";
+    v.autoRoi = null;
     if (frameChanged && v.file) refetch.push(v);
   }
   // ROI 設定フレームが変わった動画は、そのフレームの画像を取り直す
@@ -1340,9 +1381,13 @@ function currentBaseImage(e) {
   if (e.viewImage && e.viewImage.frame === state.viewFrame) return e.viewImage.data;
   return null;
 }
-function setRoi(r) {
+function setRoi(r, source, autoInfo) {
   const e = active();
   if (!e) return;
+  // ROI の出どころ：manual（手動）/ auto（自動・未修正）/ auto-edited（自動を手直し）/ copied / log
+  const prevSrc = e.settings.roiSource;
+  e.settings.roiSource = !r ? null : source || (prevSrc === "auto" || prevSrc === "auto-edited" ? "auto-edited" : "manual");
+  e.autoRoi = r && source === "auto" ? autoInfo || null : null;
   if (r) {
     clampRoi(r, e.width, e.height);
     e.settings.roiShape = r.type;
@@ -1368,7 +1413,8 @@ function updateRoiFrameInfo() {
   const f = e.settings.roiFrame || 0;
   el.textContent = e.settings.roi
     ? `ROI 設定フレーム: frame ${f}（t = ${(f / e.settings.fps).toFixed(3)} s）`
-    : "ROI 未設定：見やすいフレームを表示して、ピラー頂点をドラッグで囲んでください";
+    : "ROI 未設定：見やすいフレームを表示して、ピラー頂点をドラッグで囲んでください（学習データがあれば「自動 ROI」も使えます）";
+  updateAutoRoiInfo();
 }
 
 const drag = { on: false, mode: null, handle: null, start: null, roi0: null, preview: null };
@@ -1535,7 +1581,7 @@ function drawFirstFrameView() {
   const r = e.settings.roi;
   if (r) {
     const onRoiFrame = state.viewFrame === e.settings.roiFrame;
-    drawRoiShape(vctx, r, "#ff3b30", lw(e), onRoiFrame ? null : [6, 4]);
+    drawRoiShape(vctx, r, e.settings.roiSource === "auto" ? "#ff9f0a" : "#ff3b30", lw(e), onRoiFrame ? null : [6, 4]);
     if (!state.running) drawHandles(vctx, r, e);
   }
   if (drag.on && drag.mode === "new" && drag.preview) drawRoiShape(vctx, drag.preview, "#ff3b30", lw(e), [6, 4]);
@@ -1882,6 +1928,7 @@ async function runAnalysisNative(targets, skipped) {
   updateModeLabel();
   const t0 = performance.now();
   const jobs = [];
+  let collected = 0;
   try {
     for (const e of targets) {
       await nativeOpen(e);
@@ -1929,6 +1976,7 @@ async function runAnalysisNative(targets, skipped) {
               } catch (err) { console.warn(err); }
             }
             j.ok = true;
+            try { if (await collectSample(e)) collected++; } catch (err) { console.warn("学習データの保存に失敗", err); }
           } else if (d.state === "aborted") {
             e.status = e.results.length ? "tracked" : "ready";
             e.stale = !!e.results.length;
@@ -1962,7 +2010,8 @@ async function runAnalysisNative(targets, skipped) {
   const sec = ((performance.now() - t0) / 1000).toFixed(1);
   if (state.abort) setStatus(`中止しました（完了 ${done} 本）。`);
   else if (errs.length) setStatus(`解析完了: ${done} 本、エラー ${errs.length} 本（${errs.map(e => e.e.name).join(", ")}）`, true);
-  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : ""));
+  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : "") +
+    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : ""));
 }
 async function runAnalysis(list) {
   if (NATIVE) {
@@ -1978,7 +2027,7 @@ async function runAnalysis(list) {
   state.abort = false;
   updateButtons();
   updateModeLabel();
-  let done = 0;
+  let done = 0, collected = 0;
   try {
     for (let i = 0; i < targets.length; i++) {
       const e = targets[i];
@@ -1992,6 +2041,7 @@ async function runAnalysis(list) {
       await trackVideo(e, label);
       if (state.abort) { e.status = "tracked"; e.stale = true; break; }
       done++;
+      try { if (await collectSample(e)) collected++; } catch (err) { console.warn("学習データの保存に失敗", err); }
     }
   } catch (err) {
     console.error(err);
@@ -2010,7 +2060,8 @@ async function runAnalysis(list) {
     await gotoFrame(0);
   }
   if (state.abort) setStatus(`中止しました（完了 ${done} 本）。中止した動画は途中までの結果です。`);
-  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本${skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : ""}`);
+  else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本${skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : ""}` +
+    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : ""));
 }
 $("runActiveBtn").onclick = () => { const e = active(); if (e) runAnalysis([e]); };
 $("runAllBtn").onclick = () => runAnalysis(filteredVideos().slice());
@@ -3074,6 +3125,7 @@ async function applyLog(log) {
     delete settings.k_nN_per_um;
     if (lv.settings && lv.settings.umPerPxText == null) settings.umPerPxText = String(settings.umPerPx);
     settings.fpsSource = "log";
+    if (settings.roi && !settings.roiSource) settings.roiSource = "log";  // 旧形式ログ：ROI は手動設定
     const results = (lv.results || []).map(r => ({ ...r }));
     let e = state.videos.find(v => v.name === lv.file_name);
     if (e) {
@@ -3129,7 +3181,9 @@ dz.addEventListener("drop", ev => {
     if (json) {
       try {
         const log = JSON.parse(await json.text());
-        if (log.format === LOG_FORMAT) await applyLog(log); else alert("OITem Pillar Tracker のログではありません");
+        if (log.format === LOG_FORMAT) await applyLog(log);
+        else if (log.format === DATASET_FORMAT) await importDataset([log]);
+        else alert("OITem Pillar Tracker のログではありません");
       } catch { alert("ログファイルを読めませんでした"); }
     }
   })();
@@ -3144,6 +3198,708 @@ if (NATIVE) {
   }
 }
 window.addEventListener("beforeunload", ev => { if (state.running) { ev.preventDefault(); ev.returnValue = ""; } });
+
+// ------------------------------------------------------------------
+// ROI 学習データ（収集・保存・書き出し）と自動 ROI
+// ------------------------------------------------------------------
+const DATASET_FORMAT = "oitem-pillar-tracker-roi-dataset";
+const DATASET_VERSION = 1;
+const COLLECT_SOURCES = ["manual", "auto-edited", "log"];   // 既定で集める ROI の出どころ
+const MIN_DETECT_RATIO = 0.8;                                // これ未満の解析は学習データにしない
+const AUTO_LOW_SCORE = 0.6;                                  // 一致度がこれ未満なら「要確認」
+const AUTO_LOW_AGREE = 0.4;                                  // サンプル間の一致割合がこれ未満なら「要確認」
+// var：起動直後（ネイティブ版で OpenCV 読み込みを省くとき）に updateButtons から参照されても落ちないように
+var dataset = { samples: [], ready: false, persistent: false };
+let tplCache = null;   // [{ s, mat }]（テンプレートの cv.Mat。データが変わったら作り直す）
+
+// --- IndexedDB（このブラウザに保存） ---
+const IDB_NAME = "oitem-pillar-tracker", IDB_STORE = "roiSamples", IDB_KV = "settings";
+let idbPromise = null;
+function idb() {
+  if (idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error("IndexedDB が使えません")); return; }
+    const req = indexedDB.open(IDB_NAME, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(IDB_KV)) db.createObjectStore(IDB_KV);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return idbPromise;
+}
+function idbTx(mode, fn) {
+  return idb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, mode);
+    const st = tx.objectStore(IDB_STORE);
+    let out;
+    Promise.resolve(fn(st)).then(v => { out = v; });
+    tx.oncomplete = () => resolve(out);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  }));
+}
+function idbGetAll() {
+  return idb().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  }));
+}
+async function idbPutMany(list) { if (list.length) await idbTx("readwrite", st => { for (const s of list) st.put(s); }); }
+async function idbClear() { await idbTx("readwrite", st => { st.clear(); }); }
+function kvGet(key) {
+  return idb().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_KV, "readonly").objectStore(IDB_KV).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+}
+function kvSet(key, value) {
+  return idb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_KV, "readwrite");
+    if (value === undefined) tx.objectStore(IDB_KV).delete(key); else tx.objectStore(IDB_KV).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+// 保存先（Web 版は IndexedDB。ネイティブ版はアプリのデータフォルダに差し替える）
+const dsStore = { getAll: idbGetAll, putMany: idbPutMany, clear: idbClear, label: "このブラウザ" };
+if (NATIVE) {
+  // ネイティブ版：保存（手元の控え・共有フォルダとも）は Python 側が行う
+  dsStore.label = "このアプリ";
+  dsStore.getAll = async () => {
+    const d = await (await napi("/api/dataset")).json();
+    nativeDsLocation(d.location);
+    return d.samples || [];
+  };
+  dsStore.putMany = async list => {
+    if (!list.length) return;
+    const r = await napi("/api/dataset/put", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ samples: list }) });
+    nativeDsLocation((await r.json()).location);
+  };
+  dsStore.clear = async () => { await napi("/api/dataset/clear", { method: "POST" }); };
+}
+function nativeDsLocation(loc) {
+  if (!loc || typeof dsShared === "undefined") return;
+  dsShared.kind = loc.kind === "folder" ? "folder" : "browser";
+  dsShared.name = loc.name || "";
+  dsShared.connected = !!loc.connected;
+  dsShared.path = loc.path || "";
+}
+
+// --- 共有フォルダ（File System Access API。ネイティブ版は Python 側に差し替える） ---
+// フォルダ内の「OITem_ROI_dataset」に 1 サンプル 1 ファイル（同時に複数人が書いても衝突しない）
+const DS_SUBDIR = "OITem_ROI_dataset";
+function sampleFileName(s) {
+  return (String(s.file_name) + "__" + (s.file_size || 0)).replace(/[\\/:*?"<>|\x00-\x1f]/g, "_").slice(0, 180) + ".json";
+}
+// 同じ id のサンプルは新しい方（added_at）を残す。変わったサンプルを返す
+function mergeSamples(list) {
+  const changed = [];
+  for (const s of list) {
+    if (!s || !s.id || !s.roi || !s.template_png) continue;
+    const i = dataset.samples.findIndex(x => x.id === s.id);
+    if (i < 0) { dataset.samples.push(s); changed.push(s); }
+    else if (String(s.added_at) > String(dataset.samples[i].added_at)) { dataset.samples[i] = s; changed.push(s); }
+  }
+  if (changed.length) invalidateTemplates();
+  return changed;
+}
+const dsShared = {
+  kind: "browser",       // "browser" | "folder"
+  name: "",              // 共有フォルダ名（表示用）
+  connected: false,
+  supported: !!window.showDirectoryPicker,
+  handle: null, dir: null,
+  known: new Map(),      // ファイル名 → "更新時刻:サイズ"（変わったものだけ読み直す）
+  inFolder: new Map(),   // id → added_at（フォルダにある版）
+  lastRefresh: 0,
+  async init() {
+    if (!this.supported) return;
+    let h = null;
+    try { h = await kvGet("dsDir"); } catch {}
+    if (!h) return;
+    this.kind = "folder"; this.handle = h; this.name = h.name;
+    let perm = "prompt";
+    try { perm = await h.queryPermission({ mode: "readwrite" }); } catch {}
+    if (perm === "granted") { try { await this.connect(h); } catch (err) { console.warn(err); this.connected = false; } }
+  },
+  async choose() {
+    const h = await window.showDirectoryPicker({ id: "oitem-roi-dataset", mode: "readwrite" });
+    const r = await this.connect(h);
+    try { await kvSet("dsDir", h); } catch (err) { console.warn(err); }
+    return r;
+  },
+  async reconnect() {
+    if (!this.handle) return;
+    if ((await this.handle.requestPermission({ mode: "readwrite" })) !== "granted") throw new Error("フォルダへのアクセスが許可されませんでした");
+    return await this.connect(this.handle);
+  },
+  async connect(h) {
+    this.handle = h; this.name = h.name; this.kind = "folder";
+    this.dir = h.name === DS_SUBDIR ? h : await h.getDirectoryHandle(DS_SUBDIR, { create: true });
+    this.known = new Map(); this.inFolder = new Map();
+    this.connected = true;
+    const got = await this.refresh(true);
+    // このブラウザにしかない（または新しい）サンプルを共有フォルダへ
+    const push = dataset.samples.filter(s => !this.inFolder.has(s.id) || String(s.added_at) > String(this.inFolder.get(s.id)));
+    await this.write(push);
+    return { got, pushed: push.length };
+  },
+  async refresh(force) {
+    if (!this.connected || !this.dir) return 0;
+    if (!force && Date.now() - this.lastRefresh < 15000) return 0;
+    this.lastRefresh = Date.now();
+    const fresh = [];
+    for await (const [name, fh] of this.dir.entries()) {
+      if (fh.kind !== "file" || !name.endsWith(".json")) continue;
+      const f = await fh.getFile();
+      const sig = f.lastModified + ":" + f.size;
+      if (this.known.get(name) === sig) continue;
+      this.known.set(name, sig);
+      try {
+        const smp = JSON.parse(await f.text());
+        if (smp && smp.id) { this.inFolder.set(smp.id, smp.added_at); fresh.push(smp); }
+      } catch (err) { console.warn("読めないファイル", name, err); }
+    }
+    const changed = mergeSamples(fresh);
+    if (changed.length) { try { await idbPutMany(changed); } catch {} }
+    return changed.length;
+  },
+  async write(list) {
+    if (!this.connected || !this.dir) return;
+    for (const smp of list) {
+      const name = sampleFileName(smp);
+      const fh = await this.dir.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(JSON.stringify(smp));
+      await w.close();
+      const f = await fh.getFile();
+      this.known.set(name, f.lastModified + ":" + f.size);
+      this.inFolder.set(smp.id, smp.added_at);
+    }
+  },
+  async useBrowser() {
+    this.kind = "browser"; this.connected = false; this.handle = null; this.dir = null; this.name = "";
+    try { await kvSet("dsDir", undefined); } catch {}
+  }
+};
+if (NATIVE) {
+  // 共有フォルダは Python 側で読み書きする（フォルダ選択はネイティブのダイアログ）
+  const nativeFolder = async body => {
+    const r = await napi("/api/dataset/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.cancelled) { const err = new Error("cancelled"); err.name = "AbortError"; throw err; }
+    nativeDsLocation(d.location);
+    const before = dataset.samples.length;
+    mergeSamples(d.samples || []);
+    return { got: dataset.samples.length - before, pushed: 0 };
+  };
+  dsShared.supported = true;
+  dsShared.init = async () => {};
+  dsShared.write = async () => {};
+  dsShared.choose = async () => {
+    try { return await nativeFolder({ choose: true }); }
+    catch (err) {
+      if (!/no dialog/.test(err.message)) throw err;
+      const path = prompt("共有フォルダのパスを入力してください（例: /Volumes/lab/pillar や \\\\server\\share\\pillar）");
+      if (!path) { const e = new Error("cancelled"); e.name = "AbortError"; throw e; }
+      return await nativeFolder({ path });
+    }
+  };
+  dsShared.reconnect = async () => {
+    const before = dataset.samples.length;
+    mergeSamples(await dsStore.getAll());
+    if (!dsShared.connected) throw new Error("共有フォルダにつながりません（ネットワークやフォルダの場所を確認してください）");
+    return { got: dataset.samples.length - before, pushed: 0 };
+  };
+  dsShared.refresh = async () => {
+    const changed = mergeSamples(await dsStore.getAll());
+    return changed.length;
+  };
+  dsShared.useBrowser = async () => { await nativeFolder({ path: null }); };
+}
+// サンプルを保存（このブラウザの控え ＋ 共有フォルダ）
+async function dsPut(list) {
+  if (!list.length) return;
+  await dsStore.putMany(list);
+  if (!dsShared.connected) return;
+  try { await dsShared.write(list); }
+  catch (err) {
+    // 共有フォルダにつながらない：控えには保存済み。再接続したときに送る
+    console.warn(err);
+    dsShared.connected = false;
+    updateDatasetUi();
+    setStatus(`共有フォルダ「${dsShared.name}」に書き込めませんでした（${dsStore.label}には保存済み）。「共有フォルダに再接続」を押すと送ります。`, true);
+  }
+}
+async function dsMaybeRefresh() {
+  if (!dsShared.connected) return;
+  try { if (await dsShared.refresh(false)) updateDatasetUi(); }
+  catch (err) { console.warn(err); dsShared.connected = false; updateDatasetUi(); setStatus("共有フォルダを読めませんでした。「共有フォルダに再接続」を押してください。", true); }
+}
+// 自動 ROI は OpenCV.js を使う（未読み込みの環境では ./opencv.js を読み込む）
+let cvLoading = null;
+function ensureCv() {
+  if (window.cv && typeof window.cv.Mat === "function") return Promise.resolve();
+  if (cvLoading) return cvLoading;
+  cvLoading = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "./opencv.js";
+    s.async = true;
+    s.onerror = () => { cvLoading = null; reject(new Error("opencv.js を読み込めませんでした")); };
+    s.onload = () => {
+      const t0 = Date.now();
+      const c = window.cv;
+      if (c && typeof c.then === "function") c.then(m => { window.cv = m; });
+      const timer = setInterval(() => {
+        if (window.cv && typeof window.cv.Mat === "function") { clearInterval(timer); resolve(); }
+        else if (Date.now() - t0 > 30000) { clearInterval(timer); cvLoading = null; reject(new Error("OpenCV.js の初期化に失敗しました")); }
+      }, 50);
+    };
+    document.head.appendChild(s);
+  });
+  return cvLoading;
+}
+
+async function initDataset() {
+  try {
+    dataset.samples = await dsStore.getAll();
+    dataset.samples.sort((a, b) => String(a.added_at).localeCompare(String(b.added_at)));
+    if (navigator.storage && navigator.storage.persist) dataset.persistent = await navigator.storage.persist().catch(() => false);
+  } catch (err) {
+    console.warn(err);
+    setStatus(`学習データの保存先（${dsStore.label}）を開けませんでした。このセッション中だけ保持します。`, true);
+  }
+  try { await dsShared.init(); } catch (err) { console.warn(err); }
+  dataset.samples.sort((a, b) => String(a.added_at).localeCompare(String(b.added_at)));
+  dataset.ready = true;
+  try {
+    const c = localStorage.getItem("oitem-ds-collect"), ca = localStorage.getItem("oitem-ds-collect-auto");
+    if (c != null) $("dsCollect").checked = c === "1";
+    if (ca != null) $("dsCollectAuto").checked = ca === "1";
+  } catch {}
+  updateDatasetUi();
+}
+function sampleId(fileName, fileSize) { return `${fileName}|${fileSize || 0}`; }
+function invalidateTemplates() {
+  if (tplCache) for (const t of tplCache) t.mat.delete();
+  tplCache = null;
+}
+function updateDatasetUi() {
+  const n = dataset.samples.length;
+  $("dsCount").textContent = dataset.ready ? `${n} 件` : "読み込み中";
+  const loc = $("dsLocation");
+  if (dsShared.kind === "folder" && dsShared.connected) {
+    loc.textContent = `保存先：共有フォルダ「${dsShared.name}」（${dsStore.label}にも控えを保存）`;
+    loc.style.color = "var(--ok)";
+  } else if (dsShared.kind === "folder") {
+    loc.textContent = `共有フォルダ「${dsShared.name}」に未接続です。「共有フォルダに再接続」を押してください（それまでは${dsStore.label}にだけ保存し、再接続時に共有フォルダへ送ります）。`;
+    loc.style.color = "var(--warn)";
+  } else {
+    loc.textContent = `保存先：${dsStore.label}だけ` + (dsShared.supported ? "" : "（共有フォルダは Chrome・Edge・ネイティブ版で使えます）");
+    loc.style.color = "";
+  }
+  const folder = dsShared.kind === "folder";
+  $("dsFolderBtn").textContent = folder ? "共有フォルダを変更" : "共有フォルダを選ぶ";
+  $("dsReconnectBtn").style.display = folder && !dsShared.connected ? "" : "none";
+  $("dsRefreshBtn").style.display = folder && dsShared.connected ? "" : "none";
+  $("dsBrowserBtn").style.display = folder ? "" : "none";
+  updateDatasetButtons();
+  updateAutoRoiInfo();
+}
+function updateDatasetButtons() {
+  if (!dataset) return;
+  const n = dataset.samples.length;
+  const e = active();
+  const idle = !state.running && !state.busy;
+  $("dsExportBtn").disabled = !n;
+  $("dsClearBtn").disabled = !n || !idle || dsShared.kind === "folder";
+  $("dsClearBtn").title = dsShared.kind === "folder" ? "共有フォルダ使用中は消去できません（共有フォルダ内のファイルを直接削除してください）" : "";
+  $("dsFolderBtn").disabled = !idle || !dsShared.supported;
+  $("dsReconnectBtn").disabled = !idle;
+  $("dsRefreshBtn").disabled = !idle;
+  $("dsBrowserBtn").disabled = !idle;
+  $("dsEvalBtn").disabled = n < 2 || !idle || !cvReady;
+  $("dsImportBtn").disabled = !idle;
+  $("autoRoiBtn").disabled = !n || !idle || !cvReady || !e || !e.firstFrame;
+  $("autoRoiAllBtn").disabled = !n || !idle || !cvReady || !state.videos.some(v => v.file && v.firstFrame && !v.settings.roi);
+}
+function updateAutoRoiInfo() {
+  const el = $("autoRoiInfo");
+  if (!el) return;
+  const e = active();
+  if (!dataset.samples.length) { el.textContent = "自動 ROI：学習データがまだありません。手動で ROI を描いて解析すると集まります。"; el.style.color = ""; return; }
+  if (e && e.settings.roi && e.settings.roiSource === "auto" && e.autoRoi) {
+    const a = e.autoRoi;
+    el.textContent = `自動 ROI：一致度 ${a.score.toFixed(2)}、サンプル一致 ${a.support}/${a.total}` + (a.low ? " — 要確認（位置を確かめてください）" : "");
+    el.style.color = a.low ? "var(--warn)" : "";
+    return;
+  }
+  el.style.color = "";
+  const src = e && e.settings.roi ? { manual: "手動", "auto-edited": "自動を手直し", copied: "他の動画からコピー", log: "ログ" }[e.settings.roiSource] : null;
+  el.textContent = src ? `ROI の出どころ：${src}` : `自動 ROI：学習データ ${dataset.samples.length} 件から推定できます。`;
+}
+
+// --- 画像ユーティリティ ---
+function grayCanvasFromImageData(img, box, maxSide) {
+  // ImageData の box 部分をグレースケールにしてキャンバスに描く（maxSide を超える場合は縮小）。OpenCV 不要
+  const b = box || { x: 0, y: 0, w: img.width, h: img.height };
+  const c0 = document.createElement("canvas");
+  c0.width = b.w; c0.height = b.h;
+  const out = new ImageData(b.w, b.h);
+  const src = img.data, dst = out.data, W = img.width;
+  for (let y = 0; y < b.h; y++) {
+    for (let x = 0; x < b.w; x++) {
+      const i = ((b.y + y) * W + (b.x + x)) * 4, o = (y * b.w + x) * 4;
+      const g = Math.round(0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2]);
+      dst[o] = dst[o + 1] = dst[o + 2] = g; dst[o + 3] = 255;
+    }
+  }
+  c0.getContext("2d").putImageData(out, 0, 0);
+  const k = maxSide ? Math.min(1, maxSide / Math.max(b.w, b.h)) : 1;
+  if (k >= 1) return { canvas: c0, scale: 1 };
+  const c = document.createElement("canvas");
+  c.width = Math.round(b.w * k); c.height = Math.round(b.h * k);
+  const cx = c.getContext("2d");
+  cx.imageSmoothingQuality = "high";
+  cx.drawImage(c0, 0, 0, c.width, c.height);
+  return { canvas: c, scale: k };
+}
+function loadImageEl(url) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("画像を読めませんでした"));
+    im.src = url;
+  });
+}
+async function grayMatFromUrl(url, w, h) {
+  const im = await loadImageEl(url);
+  const c = document.createElement("canvas");
+  c.width = w || im.width; c.height = h || im.height;
+  c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+  const rgba = cv.imread(c);
+  const g = toGray(rgba); rgba.delete();
+  return g;
+}
+
+// --- 収集 ---
+async function collectSample(e) {
+  if (!$("dsCollect").checked || !e.firstFrame || !e.settings.roi) return false;
+  const s = e.settings;
+  const okSrc = COLLECT_SOURCES.includes(s.roiSource) || ($("dsCollectAuto").checked && (s.roiSource === "auto" || s.roiSource === "copied"));
+  if (!okSrc) return false;
+  const rows = e.results.filter(r => r && r.x != null);
+  const detectRatio = e.results.length ? rows.length / e.results.length : 0;
+  if (detectRatio < MIN_DETECT_RATIO) return false;
+  const scores = rows.map(r => r.score).filter(Number.isFinite).sort((a, b) => a - b);
+  const medScore = scores.length ? scores[Math.floor(scores.length / 2)] : null;
+  const box = roiBox(s.roi);
+  const tpl = grayCanvasFromImageData(e.firstFrame, box);
+  const full = grayCanvasFromImageData(e.firstFrame, null, 1280);
+  const sample = {
+    id: sampleId(e.name, e.size),
+    file_name: e.name, file_size: e.size || null,
+    width: e.width, height: e.height,
+    frame: s.roiFrame || 0, fps: s.fps,
+    polarity: s.polarity,
+    roi: cloneObj(s.roi), roi_source: s.roiSource,
+    quality: { detect_ratio: Math.round(detectRatio * 1000) / 1000, median_score: medScore == null ? null : Math.round(medScore * 1000) / 1000 },
+    group: groupName(e) || null,
+    added_at: new Date().toISOString(),
+    app_version: APP_VERSION,
+    template_png: tpl.canvas.toDataURL("image/png"),
+    image_jpg: full.canvas.toDataURL("image/jpeg", 0.92),
+    image_scale: full.scale
+  };
+  const i = dataset.samples.findIndex(x => x.id === sample.id);
+  if (i >= 0) dataset.samples.splice(i, 1);
+  dataset.samples.push(sample);
+  invalidateTemplates();
+  try { await dsPut([sample]); } catch (err) { console.warn(err); setStatus("学習データを保存できませんでした: " + (err.message || err), true); }
+  updateDatasetUi();
+  return true;
+}
+
+// --- 書き出し・読み込み・消去 ---
+$("dsCollect").onchange = () => { try { localStorage.setItem("oitem-ds-collect", $("dsCollect").checked ? "1" : "0"); } catch {} };
+$("dsCollectAuto").onchange = () => { try { localStorage.setItem("oitem-ds-collect-auto", $("dsCollectAuto").checked ? "1" : "0"); } catch {} };
+$("dsExportBtn").onclick = () => {
+  if (!dataset.samples.length) return;
+  const out = {
+    format: DATASET_FORMAT, version: DATASET_VERSION, app_version: APP_VERSION,
+    created_at: new Date().toISOString(),
+    note: "roi は元動画の px 座標（円: cx,cy,r／四角: x,y,w,h）。template_png は ROI 外接矩形のグレースケール画像（原寸）。image_jpg は ROI 設定フレーム全体のグレースケール画像で、image_scale 倍に縮小（1 = 原寸）。",
+    samples: dataset.samples
+  };
+  downloadBlob(new Blob([JSON.stringify(out)], { type: "application/json" }), `roi_dataset_${dataset.samples.length}_${timestamp()}.json`);
+  setStatus(`学習データ ${dataset.samples.length} 件を書き出しました。`);
+};
+$("dsImportBtn").onclick = () => $("dsInput").click();
+$("dsInput").onchange = async () => {
+  const files = Array.from($("dsInput").files || []);
+  $("dsInput").value = "";
+  const objs = [];
+  for (const f of files) {
+    try { objs.push(JSON.parse(await f.text())); } catch { alert(`${f.name} を読めませんでした（JSON 形式ではありません）`); }
+  }
+  if (objs.length) await importDataset(objs);
+};
+async function importDataset(objs) {
+  let added = 0, updated = 0, skipped = 0;
+  const toPut = [];
+  for (const o of objs) {
+    if (!o || o.format !== DATASET_FORMAT || !Array.isArray(o.samples)) { alert("ROI 学習データのファイルではありません"); continue; }
+    for (const s of o.samples) {
+      if (!s || !s.id || !s.roi || !s.template_png) { skipped++; continue; }
+      const i = dataset.samples.findIndex(x => x.id === s.id);
+      if (i < 0) { dataset.samples.push(s); toPut.push(s); added++; }
+      else if (String(s.added_at) > String(dataset.samples[i].added_at)) { dataset.samples[i] = s; toPut.push(s); updated++; }
+      else skipped++;
+    }
+  }
+  invalidateTemplates();
+  try { await dsPut(toPut); } catch (err) { console.warn(err); setStatus("学習データを保存できませんでした: " + (err.message || err), true); return; }
+  updateDatasetUi();
+  setStatus(`学習データを統合しました：追加 ${added} 件、更新 ${updated} 件、変更なし ${skipped} 件（計 ${dataset.samples.length} 件）。`);
+}
+$("dsClearBtn").onclick = async () => {
+  if (!confirm(`${dsStore.label}の学習データ ${dataset.samples.length} 件を消去しますか？（先に「書き出し」で保存しておくと戻せます）`)) return;
+  dataset.samples = [];
+  invalidateTemplates();
+  try { await dsStore.clear(); } catch (err) { console.warn(err); }
+  $("dsEvalResult").textContent = "";
+  updateDatasetUi();
+  setStatus("学習データを消去しました。");
+};
+
+// --- 自動 ROI（事例ベース：保存した ROI 画像との照合と多数決） ---
+async function loadTemplates() {
+  await ensureCv();
+  if (tplCache) return tplCache;
+  const list = [];
+  for (const s of dataset.samples) {
+    try { list.push({ s, mat: await grayMatFromUrl(s.template_png) }); } catch (err) { console.warn(s.id, err); }
+  }
+  tplCache = list;
+  return list;
+}
+function matchBest(img, tpl) {
+  if (tpl.cols < 3 || tpl.rows < 3 || tpl.cols > img.cols || tpl.rows > img.rows) return null;
+  const res = new cv.Mat();
+  cv.matchTemplate(img, tpl, res, cv.TM_CCOEFF_NORMED);
+  const mm = cv.minMaxLoc(res);
+  res.delete();
+  return Number.isFinite(mm.maxVal) ? { score: mm.maxVal, x: mm.maxLoc.x, y: mm.maxLoc.y } : null;
+}
+function resized(m, w, h) {
+  const o = new cv.Mat();
+  cv.resize(m, o, new cv.Size(Math.max(1, Math.round(w)), Math.max(1, Math.round(h))), 0, 0, w < m.cols ? cv.INTER_AREA : cv.INTER_LINEAR);
+  return o;
+}
+// gray: 対象フレームのグレースケール cv.Mat（原寸）。excludeId のサンプルは使わない（精度確認用）
+async function detectRoiGray(gray, excludeId) {
+  const all = await loadTemplates();
+  const tpls = all.filter(t => t.s.id !== excludeId);
+  if (!tpls.length) return null;
+  const W = gray.cols, H = gray.rows;
+  // 粗い探索：画像を縮小して全テンプレートを照合（最小のテンプレートが 12px 以上残る倍率）
+  const minSide = Math.min(...tpls.map(t => Math.min(t.mat.cols, t.mat.rows) * (t.s.width ? W / t.s.width : 1)));
+  const f = Math.min(1, Math.max(480 / Math.max(W, H), 12 / Math.max(1, minSide)));
+  const small = f < 1 ? resized(gray, W * f, H * f) : gray;
+  const SCALES = [0.9, 1, 1.1];
+  const cands = [];
+  for (const t of tpls) {
+    const res = t.s.width ? W / t.s.width : 1;   // 解像度が違う動画は比率で合わせる
+    let best = null;
+    for (const sc of SCALES) {
+      const k = res * sc * f;
+      const tm = resized(t.mat, t.mat.cols * k, t.mat.rows * k);
+      const m = matchBest(small, tm);
+      if (m && (!best || m.score > best.score)) best = { score: m.score, cx: (m.x + tm.cols / 2) / f, cy: (m.y + tm.rows / 2) / f, scale: res * sc };
+      tm.delete();
+    }
+    if (best) cands.push({ t, ...best, half: Math.min(t.mat.cols, t.mat.rows) * best.scale / 2 });
+  }
+  if (small !== gray) small.delete();
+  if (!cands.length) return null;
+  // 多数決：近い位置を指したサンプルのスコアを合計し、最も支持の多い位置を選ぶ
+  const pos = c => Math.max(0, c.score);
+  const near = (a, b) => Math.hypot(a.cx - b.cx, a.cy - b.cy) <= Math.max(4, 0.5 * Math.min(a.half, b.half));
+  let bestI = 0, bestSup = -1;
+  for (let i = 0; i < cands.length; i++) {
+    let sup = 0;
+    for (const c of cands) if (near(cands[i], c)) sup += pos(c);
+    if (sup > bestSup) { bestSup = sup; bestI = i; }
+  }
+  const supporters = cands.filter(c => near(cands[bestI], c));
+  const totalSup = cands.reduce((a, c) => a + pos(c), 0) || 1;
+  const top = supporters.reduce((a, c) => (c.score > a.score ? c : a), supporters[0]);
+  // 原寸で位置を詰める（最も一致したサンプルで周辺だけ再照合）
+  const tw = top.t.mat.cols * top.scale, th = top.t.mat.rows * top.scale;
+  const pad = Math.ceil(2 / f) + 6;
+  const sx = Math.max(0, Math.round(top.cx - tw / 2 - pad)), sy = Math.max(0, Math.round(top.cy - th / 2 - pad));
+  const sw = Math.min(W - sx, Math.round(tw + 2 * pad)), sh = Math.min(H - sy, Math.round(th + 2 * pad));
+  let cx = top.cx, cy = top.cy, score = top.score;
+  const tmF = resized(top.t.mat, tw, th);
+  if (sw >= tmF.cols && sh >= tmF.rows) {
+    const win = gray.roi(new cv.Rect(sx, sy, sw, sh));
+    const m = matchBest(win, tmF);
+    win.delete();
+    if (m) { cx = sx + m.x + tmF.cols / 2; cy = sy + m.y + tmF.rows / 2; score = m.score; }
+  }
+  tmF.delete();
+  const r0 = top.t.s.roi;
+  let roi;
+  if (r0.type === "rect") {
+    const w = Math.round(r0.w * top.scale), h = Math.round(r0.h * top.scale);
+    roi = { type: "rect", x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w, h };
+  } else {
+    roi = { type: "circle", cx: Math.round(cx), cy: Math.round(cy), r: Math.round(r0.r * top.scale) };
+  }
+  clampRoi(roi, W, H);
+  const agreement = bestSup / totalSup;
+  const low = score < AUTO_LOW_SCORE || (cands.length >= 3 && agreement < AUTO_LOW_AGREE);
+  return { roi, info: { score, agreement, support: supporters.length, total: cands.length, low, sampleId: top.t.s.id } };
+}
+async function detectRoiImageData(img, excludeId) {
+  await ensureCv();
+  const src = cv.matFromImageData(img);
+  const g = toGray(src); src.delete();
+  try { return await detectRoiGray(g, excludeId); } finally { g.delete(); }
+}
+
+$("autoRoiBtn").onclick = async () => {
+  const e = active();
+  if (!e || !e.firstFrame) return;
+  if (e.settings.roi && (e.settings.roiSource === "manual" || e.settings.roiSource === "auto-edited") &&
+      !confirm("手動で設定した ROI があります。自動 ROI で置き換えますか？")) return;
+  state.busy = true; updateButtons();
+  setStatus("自動 ROI を探しています...");
+  try {
+    await dsMaybeRefresh();
+    if (!currentBaseImage(e)) await renderViewer();
+    const img = currentBaseImage(e);
+    if (!img) { setStatus("表示中のフレームの画像を取得できませんでした", true); return; }
+    const t0 = performance.now();
+    const det = await detectRoiImageData(img, sampleId(e.name, e.size));
+    if (!det) { setStatus("自動 ROI を見つけられませんでした。手動で ROI を描いてください。", true); return; }
+    setRoi(det.roi, "auto", det.info);
+    setStatus(`自動 ROI を置きました（一致度 ${det.info.score.toFixed(2)}、${det.info.support}/${det.info.total} サンプルが一致、${Math.round(performance.now() - t0)} ms）。` +
+      (det.info.low ? "一致度が低いため、位置を確認してください。" : "位置を確認してから解析してください。"));
+  } catch (err) {
+    console.error(err);
+    setStatus("自動 ROI でエラーが発生しました: " + (err.message || err), true);
+  } finally {
+    state.busy = false; updateButtons(); renderVideoList();
+  }
+};
+$("autoRoiAllBtn").onclick = async () => {
+  const targets = state.videos.filter(v => v.file && v.firstFrame && !v.settings.roi);
+  if (!targets.length) return;
+  state.busy = true; updateButtons();
+  let ok = 0, low = 0, fail = 0;
+  try {
+    await dsMaybeRefresh();
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      setStatus(`自動 ROI (${i + 1}/${targets.length}): ${v.name}`);
+      setProgress((i + 1) / targets.length);
+      await new Promise(r => setTimeout(r, 0));
+      const det = await detectRoiImageData(v.firstFrame, sampleId(v.name, v.size));
+      if (!det) { fail++; continue; }
+      v.settings.roi = det.roi;
+      v.settings.roiShape = det.roi.type;
+      v.settings.roiSource = "auto";
+      v.autoRoi = det.info;
+      if (v.results.length) v.stale = true;
+      ok++; if (det.info.low) low++;
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus("自動 ROI でエラーが発生しました: " + (err.message || err), true);
+  } finally {
+    state.busy = false;
+    renderVideoList(); loadSettingsForm(); await renderViewer(); updateButtons();
+  }
+  setStatus(`自動 ROI を ${ok} 本に置きました` + (low ? `（うち ${low} 本は「自動ROI 要確認」）` : "") + (fail ? `。${fail} 本は見つかりませんでした` : "") + "。各動画で位置を確認してから解析してください。");
+};
+
+// --- 精度確認（leave-one-out：各サンプルを自分以外のデータで検出し、手動 ROI と比較） ---
+$("dsEvalBtn").onclick = async () => {
+  await dsMaybeRefresh();
+  const list = dataset.samples.filter(s => s.image_jpg);
+  if (list.length < 2) return;
+  state.busy = true; updateButtons();
+  const errs = [], lows = [];
+  let miss = 0;
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      setStatus(`精度を確認中 (${i + 1}/${list.length}): ${s.file_name}`);
+      setProgress((i + 1) / list.length);
+      await new Promise(r => setTimeout(r, 0));
+      await ensureCv();
+      const g = await grayMatFromUrl(s.image_jpg, s.width, s.height);
+      let det;
+      try { det = await detectRoiGray(g, s.id); } finally { g.delete(); }
+      if (!det) { miss++; continue; }
+      const c0 = s.roi.type === "rect" ? [s.roi.x + s.roi.w / 2, s.roi.y + s.roi.h / 2] : [s.roi.cx, s.roi.cy];
+      const c1 = det.roi.type === "rect" ? [det.roi.x + det.roi.w / 2, det.roi.y + det.roi.h / 2] : [det.roi.cx, det.roi.cy];
+      const d = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]);
+      const size0 = s.roi.type === "rect" ? Math.min(s.roi.w, s.roi.h) / 2 : s.roi.r;
+      errs.push({ d, rel: d / Math.max(1, size0), name: s.file_name });
+      lows.push(det.info.low);
+    }
+  } finally {
+    state.busy = false; setProgress(0); updateButtons();
+  }
+  if (!errs.length) { $("dsEvalResult").textContent = "精度を確認できませんでした。"; return; }
+  const ds = errs.map(x => x.d).sort((a, b) => a - b);
+  const med = ds[Math.floor(ds.length / 2)];
+  const inside = errs.filter(x => x.rel <= 0.5).length;
+  const worst = errs.slice().sort((a, b) => b.d - a.d).slice(0, 3).filter(x => x.rel > 0.5);
+  const text = `精度（${errs.length} 件、自分以外のデータで検出）：中心のずれ 中央値 ${med.toFixed(1)} px・最大 ${ds[ds.length - 1].toFixed(1)} px。` +
+    `ずれが ROI 半径の半分以内 ${inside}/${errs.length} 件（${Math.round(inside / errs.length * 100)}%）。` +
+    `「要確認」判定 ${lows.filter(Boolean).length} 件` + (miss ? `、検出なし ${miss} 件` : "") + "。" +
+    (worst.length ? ` ずれが大きいもの：${worst.map(x => `${x.name}（${x.d.toFixed(0)} px）`).join("、")}` : "");
+  $("dsEvalResult").textContent = text;
+  setStatus("精度の確認が終わりました。");
+};
+
+async function dsAction(fn, busyText) {
+  state.busy = true; updateButtons();
+  if (busyText) setStatus(busyText);
+  try { await fn(); }
+  catch (err) {
+    if (err && err.name === "AbortError") setStatus("キャンセルしました。");
+    else { console.error(err); setStatus("共有フォルダの操作でエラーが発生しました: " + (err.message || err), true); }
+  } finally { state.busy = false; updateDatasetUi(); updateButtons(); }
+}
+$("dsFolderBtn").onclick = () => dsAction(async () => {
+  const before = dataset.samples.length;
+  const r = await dsShared.choose();
+  setStatus(`共有フォルダ「${dsShared.name}」に接続しました（読み込み ${dataset.samples.length - before} 件追加` + (r && r.pushed ? `、このブラウザから ${r.pushed} 件を送信` : "") + `、計 ${dataset.samples.length} 件）。`);
+});
+$("dsReconnectBtn").onclick = () => dsAction(async () => {
+  const before = dataset.samples.length;
+  const r = await dsShared.reconnect();
+  setStatus(`共有フォルダ「${dsShared.name}」に再接続しました（計 ${dataset.samples.length} 件、新しく読み込み ${dataset.samples.length - before} 件` + (r && r.pushed ? `、送信 ${r.pushed} 件` : "") + "）。");
+});
+$("dsRefreshBtn").onclick = () => dsAction(async () => {
+  const n = await dsShared.refresh(true);
+  setStatus(n ? `共有フォルダから ${n} 件を読み込みました（計 ${dataset.samples.length} 件）。` : "共有フォルダに新しいデータはありません。");
+}, "共有フォルダを読み込み中...");
+$("dsBrowserBtn").onclick = () => {
+  if (!confirm(`共有フォルダ「${dsShared.name}」への保存をやめ、${dsStore.label}だけに保存しますか？（共有フォルダのデータは消えません。これまでに読み込んだ分は${dsStore.label}に残ります）`)) return;
+  dsAction(async () => { await dsShared.useBrowser(); setStatus(`保存先を${dsStore.label}に戻しました。`); });
+};
+
+initDataset();
 
 // 初期表示
 let savedTheme = "dark";
