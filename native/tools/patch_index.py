@@ -127,7 +127,7 @@ rep('''async function runAnalysis(list) {
   updateModeLabel();
   const t0 = performance.now();
   const jobs = [];
-  let collected = 0;
+  let collected = 0, overlayPending = 0;
   try {
     for (const e of targets) {
       await nativeOpen(e);
@@ -140,7 +140,8 @@ rep('''async function runAnalysis(list) {
       const { job } = await r.json();
       e.status = "running";
       e.results = [];
-      jobs.push({ e, job, finished: false });
+      jobs.push({ e, job, finished: false, overlay: !!s.recordOverlay });
+      e.overlayJob = job;
     }
     renderVideoList();
     let finishedCount = 0;
@@ -148,31 +149,27 @@ rep('''async function runAnalysis(list) {
       await new Promise(r => setTimeout(r, 150));
       const open = jobs.filter(j => !j.finished);
       const ids = open.map(j => j.job).join(",");
-      const st = await (await napi(`/api/job?ids=${ids}`)).json();
+      const st = await (await napi(`/api/job?ids=${ids}&rows=1`)).json();
       let sum = 0;
       for (const j of jobs) {
         const d = st[j.job];
         if (j.finished) { sum += 1; continue; }
         if (!d) continue;
-        sum += d.progress;
-        if (["done", "error", "aborted"].includes(d.state)) {
+        // オーバーレイ動画は追跡が終わった時点で裏で作り続ける（結果はすぐ表示）
+        sum += Math.min(1, d.progress / (j.overlay ? 0.4 : 1));
+        if (["done", "error", "aborted", "overlay"].includes(d.state)) {
           j.finished = true;
           finishedCount++;
           const e = j.e;
-          if (d.state === "done") {
+          if (d.state === "done" || d.state === "overlay") {
             e.results = d.rows;
             e.stale = false;
             e.analyzedAt = new Date().toISOString();
             e.status = "tracked";
             e.repro = e.logResults ? compareWithLog(e) : null;
-            if (e.settings.recordOverlay) {
-              try {
-                const blob = await (await napi(`/api/overlay?vid=${e.vid}`)).blob();
-                if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
-                e.overlayBlob = blob;
-                e.overlayUrl = URL.createObjectURL(blob);
-                e.overlayExt = "mp4";
-              } catch (err) { console.warn(err); }
+            if (j.overlay) {
+              if (d.state === "done") await nativeFetchOverlay(e);
+              else { overlayPending++; nativeWatchOverlay(e, j.job); }
             }
             j.ok = true;
             try { if (await collectSample(e)) collected++; } catch (err) { console.warn("学習データの保存に失敗", err); }
@@ -210,7 +207,36 @@ rep('''async function runAnalysis(list) {
   if (state.abort) setStatus(`中止しました（完了 ${done} 本）。`);
   else if (errs.length) setStatus(`解析完了: ${done} 本、エラー ${errs.length} 本（${errs.map(e => e.e.name).join(", ")}）`, true);
   else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : "") +
-    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : ""));
+    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : "") +
+    (overlayPending ? ` オーバーレイ動画（${overlayPending} 本）は裏で作成中です。結果はそのまま確認できます。` : ""));
+}
+async function nativeFetchOverlay(e) {
+  try {
+    const blob = await (await napi(`/api/overlay?vid=${e.vid}`)).blob();
+    if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
+    e.overlayBlob = blob;
+    e.overlayUrl = URL.createObjectURL(blob);
+    e.overlayExt = "mp4";
+  } catch (err) { console.warn(err); }
+}
+// 追跡後に裏で作っているオーバーレイ動画ができたら受け取る
+async function nativeWatchOverlay(e, job) {
+  e.overlayPending = true;
+  updateButtons();
+  try {
+    while (e.overlayJob === job) {
+      await new Promise(r => setTimeout(r, 400));
+      const d = (await (await napi(`/api/job?ids=${job}`)).json())[job];
+      if (!d || ["error", "aborted"].includes(d.state)) break;
+      if (d.state === "done") {
+        if (e.overlayJob === job) await nativeFetchOverlay(e);
+        break;
+      }
+    }
+  } catch (err) { console.warn(err); }
+  if (e.overlayJob === job) e.overlayPending = false;
+  updateButtons();
+  updateOverlayPreview();
 }
 async function runAnalysis(list) {
   if (NATIVE) {
@@ -301,6 +327,10 @@ if (NATIVE) {
 }
 ''')
 rep("このブラウザにも控えを残すので", "このアプリのデータフォルダにも控えを残すので")
+
+rep('''  $("overlayBtn").disabled = !e || !e.overlayBlob;''',
+    '''  $("overlayBtn").disabled = !e || !e.overlayBlob;
+  if (NATIVE) $("overlayBtn").textContent = e && e.overlayPending && !e.overlayBlob ? "オーバーレイ動画（作成中…）" : "オーバーレイ動画";''')
 
 # ---------------------------------------------------------------- ログに解析エンジンを記録
 rep('''    app_version: APP_VERSION,

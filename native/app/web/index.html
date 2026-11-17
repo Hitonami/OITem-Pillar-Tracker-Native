@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OITem Pillar Tracker v2.11.0</title>
+<title>OITem Pillar Tracker v2.12.0</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -397,6 +397,12 @@
           </div>
           <div class="field"><label>低スコア判定 (&lt;)</label><input type="number" id="setMinScore" min="0" max="1" step="0.05"></div>
         </div>
+        <div class="field" style="margin-top:6px"><label>位置の求め方</label>
+          <select id="setCenterMethod" title="テンプレート位置：ROI 全体の模様の一致位置をサブピクセルで求めます（照明むらに強く、静止時の揺れが小さい）。輪郭の外接円：二値化した輪郭の最小外接円の中心（v2.10 以前の方式）。">
+            <option value="template">テンプレート位置（サブピクセル・推奨）</option>
+            <option value="contour">輪郭の外接円の中心（従来）</option>
+          </select>
+        </div>
 
         <div class="sub">物理量換算</div>
         <div class="grid2">
@@ -450,7 +456,7 @@
             <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「他の動画への適用」で適用先の動画を選んで反映できます）。</li>
             <li>スライダーで見やすいフレームを表示し、ピラー頂点を ROI で囲みます（どのフレームでも可）。ROI を描いたフレームが「ROI 設定フレーム」になり、そのフレームの画像をテンプレートとして前後両方向に追跡します。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
             <li>自動 ROI：解析で集めた学習データ（過去の ROI と画像）と表示中フレームを照合し、最も多くのサンプルが一致した位置に ROI を置きます。自動 ROI はオレンジで表示されます。一致度が低い動画は「自動ROI 要確認」になるので、確認・修正してから解析してください。直した ROI は次から学習データになります。</li>
-            <li>赤点は、二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
+            <li>赤点は、「位置の求め方」が「テンプレート位置」（既定）のときは ROI の模様がいちばんよく一致した位置（サブピクセル）から求めた ROI の中心、「輪郭の外接円」のときは二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
             <li>解析後はスライダーやグラフのクリックで任意のフレームを確認できます。</li>
             <li>スケールやばね定数は解析後に変更しても再解析は不要で、グラフと CSV にすぐ反映されます。ROI・FPS・探索範囲・明るさを変えた場合は「要再解析」になります。</li>
             <li>オーバーレイ動画は MediaRecorder で作るため、再生速度が元動画と一致しない場合があります。定量評価には CSV を使ってください。</li>
@@ -571,7 +577,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "2.11.0";
+const APP_VERSION = "2.12.0";
 const LOG_FORMAT = "oitem-pillar-tracker-log";
 
 // ------------------------------------------------------------------
@@ -579,12 +585,12 @@ const LOG_FORMAT = "oitem-pillar-tracker-log";
 // ------------------------------------------------------------------
 const DEFAULT_SETTINGS = {
   fps: 50, fpsSource: "default",
-  margin: 40, polarity: "dark", minScore: 0.5,
+  margin: 40, polarity: "dark", minScore: 0.5, centerMethod: "template",
   roiShape: "circle", roi: null, roiFrame: 0, roiSource: null,
   umPerPx: 24 / 11, umPerPxText: "24/11", kMode: "direct", k_N_per_m: 0.748, E_MPa: 2, D_um: 10, L_um: 30,
   recordOverlay: true, showTrajectory: true
 };
-const TRACKING_KEYS = ["fps", "margin", "polarity", "roi", "roiFrame"];
+const TRACKING_KEYS = ["fps", "margin", "polarity", "centerMethod", "roi", "roiFrame"];
 
 const state = {
   videos: [],
@@ -1083,6 +1089,7 @@ function updateButtons() {
   $("csvBtn").disabled = !e || !e.results.length;
   updateExportButtons();
   $("overlayBtn").disabled = !e || !e.overlayBlob;
+  if (NATIVE) $("overlayBtn").textContent = e && e.overlayPending && !e.overlayBlob ? "オーバーレイ動画（作成中…）" : "オーバーレイ動画";
   $("pngBtn").disabled = !state.videos.some(v => v.results.length);
   $("frameSlider").disabled = state.running || !e || !e.file;
   for (const id of ["firstFrameBtn", "prevFrameBtn", "nextFrameBtn", "roiFrameBtn"]) $(id).disabled = state.running || !e || !e.file;
@@ -1112,6 +1119,7 @@ function loadSettingsForm() {
   $("fpsSrc").textContent = s.fpsSource === "log" ? "（ログ）" : s.fpsSource === "default" ? "（既定）" : "（手入力）";
   $("setMargin").value = s.margin;
   $("setPolarity").value = s.polarity;
+  $("setCenterMethod").value = s.centerMethod || "template";
   $("setMinScore").value = s.minScore;
   $("setUmPerPx").value = s.umPerPxText || String(s.umPerPx);
   $("setKMode").value = s.kMode;
@@ -1200,6 +1208,7 @@ bindNum("setE", "E_MPa");
 bindNum("setD", "D_um");
 bindNum("setL", "L_um");
 $("setPolarity").onchange = () => onSettingChanged("polarity", $("setPolarity").value);
+$("setCenterMethod").onchange = () => onSettingChanged("centerMethod", $("setCenterMethod").value);
 $("setKMode").onchange = () => { onSettingChanged("kMode", $("setKMode").value); updateKUi(); };
 $("setRecord").onchange = () => onSettingChanged("recordOverlay", $("setRecord").checked);
 $("setTrajectory").onchange = () => { onSettingChanged("showTrajectory", $("setTrajectory").checked); renderViewer(); };
@@ -1243,7 +1252,7 @@ $("copyRoiBtn").onclick = () => {
 };
 $("clearRoiBtn").onclick = () => setRoi(null);
 // 「他の動画への適用」：コピーする設定キー（ROI 以外）
-const APPLY_KEYS = ["fps", "fpsSource", "margin", "polarity", "minScore", "umPerPx", "umPerPxText", "kMode", "k_N_per_m", "E_MPa", "D_um", "L_um", "recordOverlay", "showTrajectory"];
+const APPLY_KEYS = ["fps", "fpsSource", "margin", "polarity", "centerMethod", "minScore", "umPerPx", "umPerPxText", "kMode", "k_N_per_m", "E_MPa", "D_um", "L_um", "recordOverlay", "showTrajectory"];
 function renderApplyTargets() {
   const box = $("applyTargets");
   if (!box) return;
@@ -1739,11 +1748,26 @@ function trackFrame(gray, template, lastX, lastY, s, W, H) {
   const mx = sx + mm.maxLoc.x;
   const my = sy + mm.maxLoc.y;
   const score = mm.maxVal;
+  const sub = subpixelPeak(result, mm.maxLoc.x, mm.maxLoc.y);
   search.delete(); result.delete();
 
   const c = refineCenter(gray, mx, my, box, s, W, H);
-  if (!c) return { mx, my, score, x: null };
-  return { mx, my, score, x: c.cx, y: c.cy, area: c.area, radius: c.radius };
+  if ((s.centerMethod || "template") === "contour") {
+    // 従来：二値化した輪郭の最小外接円の中心
+    if (!c) return { mx, my, score, x: null };
+    return { mx, my, score, x: c.cx, y: c.cy, area: c.area, radius: c.radius };
+  }
+  // テンプレート位置（サブピクセル）：ROI の中心がどれだけ動いたか。照明むらで輪郭が揺れても影響を受けない
+  return { mx, my, score, x: mx + sub.dx + box.w / 2, y: my + sub.dy + box.h / 2, area: c ? c.area : null, radius: c ? c.radius : null };
+}
+// 相関マップの最大点を、前後 1 画素の値に放物線を当てはめてサブピクセル化する（各方向 ±0.5 以内）
+function subpixelPeak(res, px, py) {
+  const at = (x, y) => res.floatAt(y, x);
+  const off = (a, b, c) => { const d = a - 2 * b + c; return d < 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)) : 0; };
+  const w = res.cols, h = res.rows;
+  const dx = px > 0 && px < w - 1 ? off(at(px - 1, py), at(px, py), at(px + 1, py)) : 0;
+  const dy = py > 0 && py < h - 1 ? off(at(px, py - 1), at(px, py), at(px, py + 1)) : 0;
+  return { dx, dy };
 }
 function refineCenter(gray, x, y, box, s, W, H) {
   const pad = 10;
@@ -1928,7 +1952,7 @@ async function runAnalysisNative(targets, skipped) {
   updateModeLabel();
   const t0 = performance.now();
   const jobs = [];
-  let collected = 0;
+  let collected = 0, overlayPending = 0;
   try {
     for (const e of targets) {
       await nativeOpen(e);
@@ -1941,7 +1965,8 @@ async function runAnalysisNative(targets, skipped) {
       const { job } = await r.json();
       e.status = "running";
       e.results = [];
-      jobs.push({ e, job, finished: false });
+      jobs.push({ e, job, finished: false, overlay: !!s.recordOverlay });
+      e.overlayJob = job;
     }
     renderVideoList();
     let finishedCount = 0;
@@ -1949,31 +1974,27 @@ async function runAnalysisNative(targets, skipped) {
       await new Promise(r => setTimeout(r, 150));
       const open = jobs.filter(j => !j.finished);
       const ids = open.map(j => j.job).join(",");
-      const st = await (await napi(`/api/job?ids=${ids}`)).json();
+      const st = await (await napi(`/api/job?ids=${ids}&rows=1`)).json();
       let sum = 0;
       for (const j of jobs) {
         const d = st[j.job];
         if (j.finished) { sum += 1; continue; }
         if (!d) continue;
-        sum += d.progress;
-        if (["done", "error", "aborted"].includes(d.state)) {
+        // オーバーレイ動画は追跡が終わった時点で裏で作り続ける（結果はすぐ表示）
+        sum += Math.min(1, d.progress / (j.overlay ? 0.4 : 1));
+        if (["done", "error", "aborted", "overlay"].includes(d.state)) {
           j.finished = true;
           finishedCount++;
           const e = j.e;
-          if (d.state === "done") {
+          if (d.state === "done" || d.state === "overlay") {
             e.results = d.rows;
             e.stale = false;
             e.analyzedAt = new Date().toISOString();
             e.status = "tracked";
             e.repro = e.logResults ? compareWithLog(e) : null;
-            if (e.settings.recordOverlay) {
-              try {
-                const blob = await (await napi(`/api/overlay?vid=${e.vid}`)).blob();
-                if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
-                e.overlayBlob = blob;
-                e.overlayUrl = URL.createObjectURL(blob);
-                e.overlayExt = "mp4";
-              } catch (err) { console.warn(err); }
+            if (j.overlay) {
+              if (d.state === "done") await nativeFetchOverlay(e);
+              else { overlayPending++; nativeWatchOverlay(e, j.job); }
             }
             j.ok = true;
             try { if (await collectSample(e)) collected++; } catch (err) { console.warn("学習データの保存に失敗", err); }
@@ -2011,7 +2032,36 @@ async function runAnalysisNative(targets, skipped) {
   if (state.abort) setStatus(`中止しました（完了 ${done} 本）。`);
   else if (errs.length) setStatus(`解析完了: ${done} 本、エラー ${errs.length} 本（${errs.map(e => e.e.name).join(", ")}）`, true);
   else if (!$("statusText").classList.contains("err")) setStatus(`解析完了: ${done} 本（${sec} 秒）` + (skipped ? `（ROI 未設定などで ${skipped} 本スキップ）` : "") +
-    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : ""));
+    (collected ? ` 学習データに ${collected} 件保存しました（計 ${dataset.samples.length} 件）。` : "") +
+    (overlayPending ? ` オーバーレイ動画（${overlayPending} 本）は裏で作成中です。結果はそのまま確認できます。` : ""));
+}
+async function nativeFetchOverlay(e) {
+  try {
+    const blob = await (await napi(`/api/overlay?vid=${e.vid}`)).blob();
+    if (e.overlayUrl) URL.revokeObjectURL(e.overlayUrl);
+    e.overlayBlob = blob;
+    e.overlayUrl = URL.createObjectURL(blob);
+    e.overlayExt = "mp4";
+  } catch (err) { console.warn(err); }
+}
+// 追跡後に裏で作っているオーバーレイ動画ができたら受け取る
+async function nativeWatchOverlay(e, job) {
+  e.overlayPending = true;
+  updateButtons();
+  try {
+    while (e.overlayJob === job) {
+      await new Promise(r => setTimeout(r, 400));
+      const d = (await (await napi(`/api/job?ids=${job}`)).json())[job];
+      if (!d || ["error", "aborted"].includes(d.state)) break;
+      if (d.state === "done") {
+        if (e.overlayJob === job) await nativeFetchOverlay(e);
+        break;
+      }
+    }
+  } catch (err) { console.warn(err); }
+  if (e.overlayJob === job) e.overlayPending = false;
+  updateButtons();
+  updateOverlayPreview();
 }
 async function runAnalysis(list) {
   if (NATIVE) {
@@ -2589,7 +2639,7 @@ function csvMeta(e) {
     `# roi_frame: ${s.roiFrame || 0} (template frame; tracked forward and backward)`,
     `# search_margin_px: ${s.margin}`,
     `# target_polarity: ${s.polarity} (OTSU, ${s.polarity === "bright" ? "THRESH_BINARY" : "THRESH_BINARY_INV"})`,
-    `# center_method: minEnclosingCircle / template: TM_CCOEFF_NORMED (grayscale, ROI frame)`,
+    `# center_method: ${(s.centerMethod || "template") === "contour" ? "minEnclosingCircle of OTSU contour" : "template match position with parabolic subpixel peak (ROI center)"} / template: TM_CCOEFF_NORMED (grayscale, ROI frame)`,
     `# um_per_px: ${s.umPerPx}${s.umPerPxText ? ` (${s.umPerPxText})` : ""}`,
     `# k_N_per_m: ${Number.isFinite(k) ? k.toPrecision(6) : ""} (${s.kMode}${s.kMode === "geometry" ? `: E=${s.E_MPa}MPa D=${s.D_um}um L=${s.L_um}um` : ""})`,
     `# low_score_threshold: ${s.minScore}`,
@@ -2878,6 +2928,7 @@ function conditionPairs(e) {
     ["roi_frame", s.roiFrame || 0],
     ["search_margin_px", s.margin],
     ["target_polarity", s.polarity],
+    ["center_method", (s.centerMethod || "template") === "contour" ? "contour (minEnclosingCircle)" : "template (subpixel)"],
     ["um_per_px", s.umPerPx],
     ["um_per_px_input", s.umPerPxText || String(s.umPerPx)],
     ["k_N_per_m", Number.isFinite(k) ? rnd(k, 6) : null],
@@ -3126,6 +3177,7 @@ async function applyLog(log) {
     if (lv.settings && lv.settings.umPerPxText == null) settings.umPerPxText = String(settings.umPerPx);
     settings.fpsSource = "log";
     if (settings.roi && !settings.roiSource) settings.roiSource = "log";  // 旧形式ログ：ROI は手動設定
+    if (!lv.settings || !lv.settings.centerMethod) settings.centerMethod = "contour";  // v2.10 以前のログは従来の求め方で再現
     const results = (lv.results || []).map(r => ({ ...r }));
     let e = state.videos.find(v => v.name === lv.file_name);
     if (e) {

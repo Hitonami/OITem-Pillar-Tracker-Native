@@ -271,6 +271,19 @@ def refine_center(gray, x, y, box, s, W, H):
     return rx + float(ccx), ry + float(ccy), float(best_area), float(rad)
 
 
+def subpixel_peak(res, px, py):
+    """相関マップ res の最大点 (px, py) を、前後 1 画素の値に放物線を当てはめてサブピクセル化する（各方向 ±0.5 以内）。"""
+    def off(a, b, c):
+        d = a - 2 * b + c
+        if not (d < 0):
+            return 0.0
+        return max(-0.5, min(0.5, 0.5 * (a - c) / d))
+    h, w = res.shape
+    dx = off(float(res[py, px - 1]), float(res[py, px]), float(res[py, px + 1])) if 0 < px < w - 1 else 0.0
+    dy = off(float(res[py - 1, px]), float(res[py, px]), float(res[py + 1, px])) if 0 < py < h - 1 else 0.0
+    return dx, dy
+
+
 def track_frame(gray, template, last_x, last_y, s, W, H):
     box = roi_box(s["roi"])
     _, _, bw, bh = box
@@ -287,8 +300,15 @@ def track_frame(gray, template, last_x, last_y, s, W, H):
     mx, my = sx + max_loc[0], sy + max_loc[1]
     out = {"mx": mx, "my": my, "score": float(max_val), "x": None}
     c = refine_center(gray, mx, my, box, s, W, H)
-    if c:
-        out.update(x=c[0], y=c[1], area=c[2], radius=c[3])
+    if s.get("centerMethod", "template") == "contour":
+        # 従来：二値化した輪郭の最小外接円の中心
+        if c:
+            out.update(x=c[0], y=c[1], area=c[2], radius=c[3])
+    else:
+        # テンプレート位置（サブピクセル）：ROI の中心がどれだけ動いたか。照明むらで輪郭が揺れても影響を受けない
+        dx, dy = subpixel_peak(res, max_loc[0], max_loc[1])
+        out.update(x=mx + dx + bw / 2, y=my + dy + bh / 2,
+                   area=c[2] if c else None, radius=c[3] if c else None)
     return out
 
 
@@ -487,9 +507,15 @@ def write_overlay(info: VideoInfo, s: dict, rows, out_path: str, job: Job | None
         st = out.add_stream(codec, rate=rate)
         st.width, st.height, st.pix_fmt = W2, H2, "yuv420p"
         if codec == "libx264":
-            st.options = {"crf": "20", "preset": "veryfast"}
+            # 画質優先（crf 18・medium）。ただし元動画より高いビットレートにしても画質は元動画を超えず
+            # （元の圧縮ノイズを再現するだけ）ファイルが大きくなるので、元動画の平均ビットレートを上限にする
+            st.options = {"crf": "18", "preset": "medium"}
+            src_kbps = _source_kbps(info)
+            if src_kbps:
+                cap = max(1000, int(src_kbps))
+                st.options.update(maxrate=f"{cap}k", bufsize=f"{cap}k")
         else:
-            st.bit_rate = int(W2 * H2 * fps * 0.15)
+            st.bit_rate = int(W2 * H2 * fps * 0.3)
         try:
             st.thread_type = "AUTO"
         except Exception:  # noqa: BLE001
@@ -502,6 +528,8 @@ def write_overlay(info: VideoInfo, s: dict, rows, out_path: str, job: Job | None
             draw_overlay(img, s, rows, f, W, show)
             if (W2, H2) != (W, H):
                 img = cv2.copyMakeBorder(img, 0, H2 - H, 0, W2 - W, cv2.BORDER_REPLICATE)
+            # RGB → YUV420 は PyAV（swscale）で。色差を平均して間引くので、細い色線がにじみにくい
+            # （OpenCV の RGB2YUV_I420 は 2×2 の左上の色だけを使うため使わない）
             frame = av.VideoFrame.from_ndarray(img, format="rgb24")
             frame.pts = f
             frame.time_base = Fraction(1) / rate
@@ -512,6 +540,16 @@ def write_overlay(info: VideoInfo, s: dict, rows, out_path: str, job: Job | None
         sampler.it.close()
         for pkt in st.encode():
             out.mux(pkt)
+
+
+def _source_kbps(info: VideoInfo):
+    """元動画の平均ビットレート（kbps）。ファイルサイズ ÷ 長さで求める。"""
+    try:
+        if info.duration > 0:
+            return os.path.getsize(info.path) * 8 / info.duration / 1000
+    except OSError:
+        pass
+    return None
 
 
 def h264_encoder():

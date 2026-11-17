@@ -13,7 +13,7 @@ exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='OITem Pillar Tracker'
 coll = COLLECT(exe, a.binaries, a.datas, name='OITem Pillar Tracker')
 if sys.platform == 'darwin':
     app = BUNDLE(coll, name='OITem Pillar Tracker.app', icon='icon/icon.icns', bundle_identifier='jp.ac.oit.oitem.pillartracker',
-                 info_plist={'CFBundleShortVersionString': '1.1.0', 'NSHighResolutionCapable': True,
+                 info_plist={'CFBundleShortVersionString': '1.2.0', 'NSHighResolutionCapable': True,
                              'LSMinimumSystemVersion': '11.0',
                              # アプリ内のローカルサーバ (http://127.0.0.1) に接続するため
                              'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True}})

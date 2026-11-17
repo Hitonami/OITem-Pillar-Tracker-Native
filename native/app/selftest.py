@@ -42,16 +42,23 @@ def run():
     xs, ys = make_video(src)
     info = tracker.probe(src)
     print("video:", info.width, "x", info.height, f"{info.duration:.3f}s", info.nb_frames, "frames")
-    s = dict(fps=50, margin=40, polarity="dark", roi={"type": "circle", "cx": 300, "cy": 240, "r": 14},
-             roiFrame=30, showTrajectory=True)
-    t0 = time.perf_counter()
-    rows = tracker.track_video(info, s)
-    t1 = time.perf_counter()
-    err = [math.hypot(r["x"] - xs[r["frame"]], r["y"] - ys[r["frame"]]) for r in rows if r["x"] is not None]
-    print(f"tracked {len(err)}/{len(rows)} frames in {t1 - t0:.2f}s, max error {max(err):.2f}px, mean {sum(err) / len(err):.2f}px")
+    ok = True
+    # 変位（ROI 設定フレームからの移動量）の誤差で評価する。2 通りの中心の求め方を両方確かめる
+    for method in ("template", "contour"):
+        s = dict(fps=50, margin=40, polarity="dark", roi={"type": "circle", "cx": 300, "cy": 240, "r": 14},
+                 roiFrame=30, showTrajectory=True, centerMethod=method)
+        t0 = time.perf_counter()
+        rows = tracker.track_video(info, s)
+        t1 = time.perf_counter()
+        r0 = rows[30]
+        err = [math.hypot((r["x"] - r0["x"]) - (xs[r["frame"]] - xs[30]), (r["y"] - r0["y"]) - (ys[r["frame"]] - ys[30]))
+               for r in rows if r["x"] is not None]
+        print(f"[{method}] tracked {len(err)}/{len(rows)} frames in {t1 - t0:.2f}s, "
+              f"max error {max(err):.2f}px, mean {sum(err) / len(err):.3f}px")
+        ok = ok and len(err) == len(rows) and max(err) < 1.0
     ov = os.path.join(d, "overlay.mp4")
     tracker.write_overlay(info, s, rows, ov)
     print(f"overlay {os.path.getsize(ov)} bytes in {time.perf_counter() - t1:.2f}s")
-    ok = len(err) == len(rows) and max(err) < 1.0 and os.path.getsize(ov) > 1000
+    ok = ok and os.path.getsize(ov) > 1000
     print("SELFTEST", "OK" if ok else "FAILED")
     return 0 if ok else 1

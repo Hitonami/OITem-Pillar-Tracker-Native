@@ -24,7 +24,7 @@ import numpy as np
 import tracker
 
 APP_NAME = "OITem Pillar Tracker"
-NATIVE_VERSION = "1.1.0"
+NATIVE_VERSION = "1.2.0"
 
 
 def resource_dir():
