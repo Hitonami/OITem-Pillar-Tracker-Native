@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OITem Pillar Tracker v2.12.0</title>
+<title>OITem Pillar Tracker v2.13.0</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -453,7 +453,7 @@
         <details>
           <summary>使い方</summary>
           <ul>
-            <li>FPS は既定で 50 fps です。撮影条件が違う場合は「解析条件」の FPS に入力してください（「他の動画への適用」で適用先の動画を選んで反映できます）。</li>
+            <li>FPS は動画ファイルから自動で読み取ります（MP4・MOV・AVI・WebM。読めない場合は再生して推定し、それも無理なら 50 fps）。ハイスピードカメラなど、撮影時の fps と動画に記録された再生用の fps が違う場合は、「解析条件」の FPS に撮影時の値を入力してください（「他の動画への適用」で他の動画にも反映できます）。ログを読み込んだ動画はログの FPS を使い、動画の値と違う場合は ⚠ で知らせます。</li>
             <li>スライダーで見やすいフレームを表示し、ピラー頂点を ROI で囲みます（どのフレームでも可）。ROI を描いたフレームが「ROI 設定フレーム」になり、そのフレームの画像をテンプレートとして前後両方向に追跡します。内側をドラッグすると移動、ハンドルをドラッグするとサイズ変更、選択中に矢印キーで 1px（Shift で 10px）ずつ移動します。</li>
             <li>自動 ROI：解析で集めた学習データ（過去の ROI と画像）と表示中フレームを照合し、最も多くのサンプルが一致した位置に ROI を置きます。自動 ROI はオレンジで表示されます。一致度が低い動画は「自動ROI 要確認」になるので、確認・修正してから解析してください。直した ROI は次から学習データになります。</li>
             <li>赤点は、「位置の求め方」が「テンプレート位置」（既定）のときは ROI の模様がいちばんよく一致した位置（サブピクセル）から求めた ROI の中心、「輪郭の外接円」のときは二値化したピラー頂点輪郭の最小外接円の中心です。変位は最初に検出したフレームを基準にします。y は画像の下向きが正です。</li>
@@ -577,7 +577,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "2.12.0";
+const APP_VERSION = "2.13.0";
 const LOG_FORMAT = "oitem-pillar-tracker-log";
 
 // ------------------------------------------------------------------
@@ -900,7 +900,8 @@ async function prepareEntry(e) {
     e.width = vid.videoWidth;
     e.height = vid.videoHeight;
     e.duration = vid.duration;
-    // FPS は自動推定せず、既定値 50 fps（変更は手入力）
+    // FPS は動画ファイルから読む（読めなければ既定値 50 fps）。ログ・手入力の値は優先する
+    await applyVideoFps(e);
     await captureFirstFrame(e);
     e.status = e.results.length ? "tracked" : "ready";
     e.error = "";
@@ -910,6 +911,203 @@ async function prepareEntry(e) {
   }
 }
 
+// ------------------------------------------------------------------
+// FPS の自動取得：動画ファイルのヘッダ（MP4/MOV・AVI・WebM/MKV）から読む。
+// 読めない形式は再生して隣り合うフレームの時刻差から推定する。
+// ------------------------------------------------------------------
+async function readBytes(file, start, len) {
+  const end = Math.min(file.size, start + len);
+  if (start >= end) return new DataView(new ArrayBuffer(0));
+  return new DataView(await file.slice(start, end).arrayBuffer());
+}
+const fourcc = (dv, o) => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
+// MP4 / MOV：映像トラックの mdhd（時間単位）と stts（各フレームの長さ）から平均 fps
+async function fpsFromMp4(file) {
+  // 先頭から box をたどって moov を探す（moov が末尾にある動画もある）
+  let pos = 0, moov = null;
+  while (pos + 8 <= file.size) {
+    const h = await readBytes(file, pos, 16);
+    let size = h.getUint32(0);
+    const type = fourcc(h, 4);
+    let hdr = 8;
+    if (size === 1) { size = Number(h.getBigUint64(8)); hdr = 16; }
+    else if (size === 0) size = file.size - pos;
+    if (size < hdr) return null;
+    if (type === "moov") { if (size > 256 * 2 ** 20) return null; moov = await readBytes(file, pos + hdr, size - hdr); break; }
+    pos += size;
+  }
+  if (!moov) return null;
+  const boxes = (dv, start, end) => {
+    const out = [];
+    let p = start;
+    while (p + 8 <= end) {
+      let size = dv.getUint32(p), hdr = 8;
+      const type = fourcc(dv, p + 4);
+      if (size === 1) { size = Number(dv.getBigUint64(p + 8)); hdr = 16; } else if (size === 0) size = end - p;
+      if (size < hdr || p + size > end) break;
+      out.push({ type, start: p + hdr, end: p + size });
+      p += size;
+    }
+    return out;
+  };
+  const child = (dv, b, type) => boxes(dv, b.start, b.end).find(x => x.type === type);
+  for (const trak of boxes(moov, 0, moov.byteLength).filter(b => b.type === "trak")) {
+    const mdia = child(moov, trak, "mdia");
+    if (!mdia) continue;
+    const hdlr = child(moov, mdia, "hdlr");
+    if (!hdlr || fourcc(moov, hdlr.start + 8) !== "vide") continue;
+    const mdhd = child(moov, mdia, "mdhd");
+    const v = moov.getUint8(mdhd.start);
+    const timescale = moov.getUint32(mdhd.start + (v === 1 ? 20 : 12));
+    const stbl = child(moov, child(moov, mdia, "minf") || mdia, "stbl");
+    const stts = stbl && child(moov, stbl, "stts");
+    if (!stts || !timescale) return null;
+    const n = moov.getUint32(stts.start + 4);
+    let frames = 0, ticks = 0, entries = [];
+    for (let i = 0; i < n; i++) {
+      const cnt = moov.getUint32(stts.start + 8 + i * 8), delta = moov.getUint32(stts.start + 12 + i * 8);
+      frames += cnt; ticks += cnt * delta; entries.push([cnt, delta]);
+    }
+    if (!frames || !ticks) return null;
+    // 最後の 1 フレームだけ長さが違う動画が多いので、それ以外がそろっていれば固定フレームレートとみなす
+    const main = entries.filter(([c]) => c > 1);
+    const fixed = main.length === 1 ? timescale / main[0][1] : null;
+    return { fps: fixed || frames * timescale / ticks, variable: !fixed && entries.length > 1, frames, method: "MP4/MOV" };
+  }
+  return null;
+}
+// AVI：映像ストリームの strh（dwRate / dwScale）、なければ avih（1 フレームのマイクロ秒）
+async function fpsFromAvi(file) {
+  const dv = await readBytes(file, 0, 64 * 1024);
+  if (dv.byteLength < 64 || fourcc(dv, 8) !== "AVI ") return null;
+  let usPerFrame = 0;
+  for (let p = 12; p + 64 <= dv.byteLength; p++) {
+    const t = fourcc(dv, p);
+    if (t === "avih") usPerFrame = dv.getUint32(p + 8, true);
+    if (t === "strh" && fourcc(dv, p + 8) === "vids") {
+      const scale = dv.getUint32(p + 8 + 20, true), rate = dv.getUint32(p + 8 + 24, true);
+      if (scale && rate) return { fps: rate / scale, variable: false, method: "AVI" };
+    }
+  }
+  return usPerFrame ? { fps: 1e6 / usPerFrame, variable: false, method: "AVI" } : null;
+}
+// WebM / MKV：映像トラックの DefaultDuration（1 フレームのナノ秒）
+async function fpsFromMkv(file) {
+  const dv = await readBytes(file, 0, 256 * 1024);
+  if (dv.byteLength < 4 || dv.getUint32(0) !== 0x1A45DFA3) return null;
+  const vint = p => {
+    const b = dv.getUint8(p);
+    let len = 1, mask = 0x80;
+    while (len <= 8 && !(b & mask)) { len++; mask >>= 1; }
+    let v = b & (mask - 1);
+    for (let i = 1; i < len; i++) v = v * 256 + dv.getUint8(p + i);
+    return { len, v, unknown: v === 2 ** (7 * len) - 1 };
+  };
+  const id = p => { const b = dv.getUint8(p); const len = b >= 0x80 ? 1 : b >= 0x40 ? 2 : b >= 0x20 ? 3 : 4; let v = 0; for (let i = 0; i < len; i++) v = v * 256 + dv.getUint8(p + i); return { len, v }; };
+  const MASTER = new Set([0x18538067, 0x1654AE6B, 0xAE]);  // Segment, Tracks, TrackEntry
+  const walk = (start, end) => {
+    let p = start;
+    while (p + 2 < end && p + 2 < dv.byteLength) {
+      const i = id(p), s = vint(p + i.len);
+      const body = p + i.len + s.len, stop = s.unknown ? end : Math.min(end, body + s.v);
+      if (i.v === 0xAE) {  // TrackEntry
+        let type = 0, dur = 0, q = body;
+        while (q + 2 < stop && q + 2 < dv.byteLength) {
+          const ci = id(q), cs = vint(q + ci.len), cb = q + ci.len + cs.len;
+          let val = 0; for (let k = 0; k < cs.v && k < 8; k++) val = val * 256 + dv.getUint8(cb + k);
+          if (ci.v === 0x83) type = val;
+          if (ci.v === 0x23E383) dur = val;
+          q = cb + cs.v;
+        }
+        if (type === 1 && dur) return { fps: 1e9 / dur, variable: false, method: "WebM/MKV" };
+      } else if (MASTER.has(i.v)) {
+        const r = walk(body, stop);
+        if (r) return r;
+      }
+      if (s.unknown && !MASTER.has(i.v)) return null;
+      p = MASTER.has(i.v) ? stop : body + s.v;
+    }
+    return null;
+  };
+  try { return walk(0, dv.byteLength); } catch { return null; }
+}
+// 再生して隣り合うフレームの時刻（mediaTime）の差から推定（ヘッダから読めない場合）
+function fpsFromPlayback(e) {
+  if (!("requestVideoFrameCallback" in HTMLVideoElement.prototype) || !e.url) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.src = e.url;
+    const times = [];
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true; v.pause(); v.removeAttribute("src"); v.load();
+      const d = [];
+      for (let i = 1; i < times.length; i++) { const x = times[i] - times[i - 1]; if (x > 1e-4) d.push(x); }
+      if (d.length < 5) { resolve(null); return; }
+      // 時刻はミリ秒単位に丸められることがあるので、区間全体の長さ ÷ フレーム間隔の数で求める
+      // （取りこぼしたフレームは、その間隔が中央値の何倍かで数える）
+      const med = d.slice().sort((a, b) => a - b)[Math.floor(d.length / 2)];
+      let steps = 0;
+      for (const x of d) steps += Math.max(1, Math.round(x / med));
+      let fps = steps / d.reduce((a, b) => a + b, 0);
+      // 再生からの推定は誤差があるので、よく使われる値に 0.5% 以内ならそろえる
+      let best = null;
+      for (const base of [24, 25, 30, 48, 50, 60, 100, 120, 240, 24000 / 1001, 30000 / 1001, 60000 / 1001]) {
+        const r = Math.abs(fps - base) / base;
+        if (r < 0.005 && (!best || r < best.r)) best = { base, r };
+      }
+      if (best) fps = best.base;
+      resolve({ fps, variable: false, method: "再生から推定" });
+    };
+    const cb = (now, meta) => { if (times[times.length - 1] !== meta.mediaTime) times.push(meta.mediaTime); if (times.length >= 40) finish(); else v.requestVideoFrameCallback(cb); };
+    v.requestVideoFrameCallback(cb);
+    v.play().catch(() => finish());
+    setTimeout(finish, 3000);
+  });
+}
+// 1001 系（29.97 など）や整数に近い値は、その値にそろえる
+function tidyFps(f) {
+  for (const base of [24, 25, 30, 48, 50, 60, 100, 120, 240]) {
+    if (Math.abs(f - base) < 0.005) return base;
+    const ntsc = base * 1000 / 1001;
+    if (Math.abs(f - ntsc) < 0.005) return ntsc;  // 29.97… などは丸めずに保持（フレーム数を正しく数えるため）
+  }
+  return Math.round(f * 1000) / 1000;
+}
+async function detectVideoFps(e) {
+  const file = e.file;
+  if (!file) return null;
+  let r = null;
+  for (const f of [fpsFromMp4, fpsFromAvi, fpsFromMkv]) {
+    try { r = await f(file); } catch (err) { console.warn(err); r = null; }
+    if (r && r.fps > 0 && r.fps < 100000) break;
+    r = null;
+  }
+  if (!r) { try { r = await videoFpsFallback(e); } catch { r = null; } }
+  if (!r || !(r.fps > 0)) return null;
+  r.fps = tidyFps(r.fps);
+  return r;
+}
+// ネイティブ版はここを差し替える（Python 側で読んだ平均フレームレート）
+async function videoFpsFallback(e) { return fpsFromPlayback(e); }
+// 動画の FPS を読み、既定値（50）のままなら置き換える。ログや手入力の値は変えない
+async function applyVideoFps(e) {
+  const r = await detectVideoFps(e);
+  e.videoFps = r;
+  if (r && e.settings.fpsSource === "default") {
+    e.settings.fps = r.fps;
+    e.settings.fpsSource = "video";
+  }
+}
+function fpsSourceText(e) {
+  const s = e ? e.settings : DEFAULT_SETTINGS;
+  const v = e && e.videoFps;
+  const base = { log: "（ログ）", default: "（既定・動画から読めず）", video: `（動画から${v && v.variable ? "・可変フレームレートの平均" : ""}）`, manual: "（手入力）" }[s.fpsSource] || "";
+  // ログや手入力の値が動画の FPS と違うときは知らせる
+  if (v && s.fpsSource !== "video" && Math.abs(v.fps - s.fps) / v.fps > 0.005) return base + ` ⚠ 動画は ${Number(v.fps.toFixed(3))}`;
+  return base;
+}
 // ------------------------------------------------------------------
 // 動画の追加・削除
 // ------------------------------------------------------------------
@@ -1064,8 +1262,8 @@ function loadSettingsForm() {
   const e = active();
   const s = e ? e.settings : DEFAULT_SETTINGS;
   $("settingsTarget").textContent = e ? e.name : "";
-  $("setFps").value = s.fps;
-  $("fpsSrc").textContent = s.fpsSource === "log" ? "（ログ）" : s.fpsSource === "default" ? "（既定）" : "（手入力）";
+  $("setFps").value = Number(Number(s.fps).toFixed(6));  // 表示だけ丸める（29.97003 など）
+  $("fpsSrc").textContent = fpsSourceText(e);
   $("setMargin").value = s.margin;
   $("setPolarity").value = s.polarity;
   $("setCenterMethod").value = s.centerMethod || "template";
@@ -1130,7 +1328,7 @@ bindNum("setFps", "fps", async v => {
   const e = active();
   if (!e || v <= 0) return;
   e.settings.fpsSource = "manual";
-  $("fpsSrc").textContent = "（手入力）";
+  $("fpsSrc").textContent = fpsSourceText(e);
   if (e.file) { await captureFirstFrame(e); state.viewFrame = e.settings.roiFrame; updateSlider(); await renderViewer(); }
 });
 bindNum("setMargin", "margin");

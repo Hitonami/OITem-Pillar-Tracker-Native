@@ -41,6 +41,7 @@ async function nativeOpen(e) {
   const m = await res.json();
   e.vid = m.vid;
   e.width = m.width; e.height = m.height; e.duration = m.duration;
+  e.nativeAvgFps = m.avgFps;
 }
 async function nativeFrame(e, t) {
   const res = await napi(`/api/frame?vid=${e.vid}&t=${t}`);
@@ -88,6 +89,7 @@ rep('''  try {
     e.width = vid.videoWidth;''', '''  try {
     if (NATIVE) {
       await nativeOpen(e);
+      await applyVideoFps(e);
       await captureFirstFrame(e);
       e.status = e.results.length ? "tracked" : "ready";
       e.error = "";
@@ -111,6 +113,14 @@ rep('''  const f = state.viewFrame;
   await loadIntoVideoEl(e);
   await seekTo(frameTime(e, f));
   if (token !== viewToken || state.running) return;''')
+
+# ---------------------------------------------------------------- FPS：ヘッダから読めない形式は Python 側（FFmpeg）の平均フレームレート
+rep('async function videoFpsFallback(e) { return fpsFromPlayback(e); }\n',
+    '''async function videoFpsFallback(e) {
+  if (NATIVE) return e.nativeAvgFps > 0 ? { fps: e.nativeAvgFps, variable: false, method: "FFmpeg" } : null;
+  return fpsFromPlayback(e);
+}
+''')
 
 # ---------------------------------------------------------------- 動画の削除
 rep('''  const e = state.videos[idx];
